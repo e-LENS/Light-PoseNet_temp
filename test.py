@@ -6,6 +6,11 @@ from models.models import create_model
 from util.visualizer import Visualizer
 from util import html
 import numpy
+import torch
+
+#import wandb
+
+#wandb.init(project="Test_CS1325_LightPoseNet_heads_1000_1000_500_32", entity="e-lens-", name="posenet_heads_500_bt32")
 
 opt = TestOptions().parse()
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -22,7 +27,7 @@ if not os.path.exists(results_dir):
 
 besterror  = [0, float('inf'), float('inf')] # nepoch, medX, medQ
 if opt.model == 'posenet':
-    testepochs = numpy.arange(450, 500+1, 5)
+    testepochs = numpy.arange(5, 500+1, 5)
 else:
     testepochs = numpy.arange(450, 1200+1, 5)
 
@@ -32,6 +37,7 @@ testfile.write('==================\n')
 
 model = create_model(opt)
 visualizer = Visualizer(opt)
+
 
 for testepoch in testepochs:
     model.load_network(model.netG, 'G', testepoch)
@@ -48,8 +54,12 @@ for testepoch in testepochs:
         print('\t%04d/%04d: process image... %s' % (i, len(dataset), img_path), end='\r')
         image_path = img_path.split('/')[-2] + '/' + img_path.split('/')[-1]
         pose = model.get_current_pose()
-        visualizer.save_estimated_pose(image_path, pose)
+        #visualizer.save_estimated_pose(image_path, pose)
         err_p, err_o = model.get_current_errors()
+
+        #wandb.log({'pos_error' : err_p,
+         #           'ori_error' : err_o})
+
         # err_pos.append(err_p)
         # err_ori.append(err_o)
         err.append([err_p, err_o])
@@ -70,3 +80,5 @@ testfile.write('-----------------\n')
 testfile.write("{0:<5} {1:.2f}m {2:.2f}°\n".format(*besterror))
 testfile.write('==================\n')
 testfile.close()
+
+#wandb.finish()

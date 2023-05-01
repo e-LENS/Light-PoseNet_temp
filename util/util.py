@@ -1,6 +1,7 @@
 from __future__ import print_function
 import torch
 import torch.nn.functional as F
+from torchmetrics.functional import pairwise_cosine_similarity
 import numpy as np
 from PIL import Image
 import inspect, re
@@ -78,45 +79,82 @@ def mkdir(path):
         os.makedirs(path)
 
 
-def getInstanceRelation(input_m):
+def getSelfSimilarity(input_m):
+    # shape : N*256*256*3 => N*(256*256*3)
     input_m = input_m.view([input_m.shape[0], -1]).squeeze()
-    res = F.pdist(input_m)
+    # F.pdist => 1*(_nC_2) //
+    res = pairwise_cosine_similarity(input_m)  # N*N
+    # res = res.view([-1])
+    """
+    n = semi_res.shape[0]
+    res = torch.ones((n * (n - 1)) / 2)
+    idx = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            res[idx] = (semi_res[i][j])
+            idx = idx + 1
 
     # Normalize to 0~1
-    res_min = res.min()
-    res_max = res.max()
-    res = (res - res_min) / (res_max - res_min)
+    # res_min = res.min()
+    # res_max = res.max()
+    # res = (res - res_min) / (res_max - res_min)
+    """
     return res
 
 
-def getRofR(image, output):
-    relation_image = getInstanceRelation(image)
-    relation_output = getInstanceRelation(output)
-    RofR = -torch.log(torch.abs(relation_image - relation_output))
-    return RofR
+def getSelfCrossSimilarity(ss1, ss2):
+    #ss1 = getSelfSimilarity(feature_1)
+    # ss1 = torch.as_tensor(ss1, dtype=torch.float)
+    #ss2 = getSelfSimilarity(feature_2)
+    # ss2 = torch.as_tensor(ss2, dtype=torch.float)
+    # SelfCrossSimilarity = torch.nn.CosineSimilarity(dim=1, eps=1e-08)(ss1,ss2)
+    """
+    lnInput=torch.abs(torch.exp(ss1)-torch.exp(ss2))
+    lnInput=lnInput/(torch.max(lnInput)-torch.min(lnInput))
+    SelfCrossSimilarity = - (torch.log(lnInput))
+    SelfCrossSimilarity = SelfCrossSimilarity.view([-1])
+    #print(SelfCrossSimilarity.shape)
+    """
+    sml1 = torch.nn.SmoothL1Loss()
+    SelfCrossSimilarity = sml1(ss1, ss2)
+    SelfCrossSimilarity = SelfCrossSimilarity.view([-1])
+    """
+    n=ss1.shape[0]
+    SelfCrossSimilarity = torch.ones((n * (n - 1)) / 2)
+    idx = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            SelfCrossSimilarity[idx] = (semi_SelfCrossSimilarity[i][j])
+            idx = idx + 1
+    """
+    return SelfCrossSimilarity
 
 
 def getIndex(size, index_A, index_B):
-    w = size * index_A + index_B - (index_A + 1) * (index_A + 2) * 0.5
+    """
+      w = size * index_A + index_B - (index_A + 1) * (index_A + 2) * 0.5
+      w = torch.as_tensor(w, dtype=torch.int64)
+    """
+    w = (size * index_A) + index_B
     w = torch.as_tensor(w, dtype=torch.int64)
-
     return w
 
 
-def subRofR(size, RofR, batchIndex):  # Batchsize = 75
+def subSelfCrossSimilarity(size, SelfCrossSimilarity, batchIndex):  # Batchsize = 75
     num = len(batchIndex)
     r_Index = []
 
-    for i, index in enumerate(batchIndex[:-1]):
+    for i, index in enumerate(batchIndex):
         index_A = index
-        for j, index_2 in enumerate(batchIndex[i + 1:]):
+        for j, index_2 in enumerate(batchIndex):
             index_B = index_2
             r_Index.append(getIndex(size, index_A, index_B))
+    # print('length : ', len(r_Index))
 
     r_Index = torch.tensor(r_Index).unsqueeze(axis=-1)
     r_Index = r_Index.view([-1]).squeeze()
 
-    sub_RofR = torch.gather(RofR, dim=0, index=r_Index)
+    sub_SelfCrossSimilarity = torch.gather(SelfCrossSimilarity, dim=0, index=r_Index)
 
-    return sub_RofR.cuda()
+    return sub_SelfCrossSimilarity.cuda()
 
