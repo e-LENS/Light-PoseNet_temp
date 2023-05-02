@@ -21,7 +21,8 @@ def weight_init_resnet(key, module, weights=None):
             init.normal_(module.weight.data, 0.0, 0.5)
         elif key == "WPQR":
             init.normal_(module.weight.data, 0.0, 0.01)
-
+        else:
+            init.normal_(module.weight.data, 0.0, 0.01)
     else:
         # print(key, weights[(key+"_1").encode()].shape, module.bias.size())
         module.bias.data[...] = torch.from_numpy(weights[(key + "_1").encode()])
