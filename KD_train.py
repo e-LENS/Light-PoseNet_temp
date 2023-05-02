@@ -1,14 +1,13 @@
 import time
 from options.KD_train_options import TrainOptions
 from data.data_loader import CreateDataLoader
-from models.models import KD_create_Tmodel, KD_create_Smodel
+from models.models import create_model, KD_create_Smodel
 from util.visualizer import Visualizer
 import copy
 import util.util as util
 from PIL import Image
 
 opt = TrainOptions().parse()
-## SEEDING
 import torch
 import numpy as np
 import random
@@ -16,12 +15,12 @@ import random
 torch.manual_seed(opt.seed)
 np.random.seed(opt.seed)
 random.seed(opt.seed)
-# torch.backends.cudnn.enabled = False
 torch.backends.cudnn.deterministic = True
-## SEEDING
+# import GPUtil
 
 # import wandb
-# wandb.init(project="LightPoseNet_asanSquare_486_122", entity="e-lens-", name="cls2_KD_MSE_asanSquare_0.7_300")
+#
+# wandb.init(project="CS1325_LightPoseNet_heads_1000_1000_500_32", entity="e-lens-", name="KDCS_heads_500_bt32")
 
 # Set Dataloader
 data_loader = CreateDataLoader(opt)
@@ -35,29 +34,43 @@ total_steps = 0
 # Set Teacher Model Parameter
 opt_T = copy.deepcopy(opt)
 opt_T.isTrain = False
-teacher = KD_create_Tmodel(opt_T)
+opt_T.model = opt.T_model
+
+teacher = create_model(opt_T)
+
 teacher.netG.load_state_dict(torch.load(opt_T.T_path))
 
 # Set Student Model
 student = KD_create_Smodel(opt)  # Criterion : KDLoss, Optimizer : Adam
 
-# RofR map for full dataset
-gt_pose = data_loader.dataset.A_poses
-gt_path = data_loader.dataset.A_paths
-gt_image = []
+# Teacher 미리 계산 list
+SS_pred_T = []  # Teacher prediction
+SS_feature_T = []  # Teacher featuremap
+SS_gt = []  # Batch groundtruth
+feature_hint = []  # Teacher hint feature
 
-for i, path in enumerate(gt_path):
-    A_img = Image.open(path).convert('RGB')
-    A_img = np.array(A_img).astype(np.float32)
-    A_img = torch.tensor(A_img)
+with torch.no_grad():
+    for i, data in enumerate(dataset):
+        teacher.set_input(data)
+        teacher.test()
 
-    gt_image.append(A_img)
+        pred_T, hint, feature_T = teacher.pred_B  # self.cls3_fc(output_5b), output_5b, feature_T
 
-gt_img = torch.stack(gt_image, dim=0)
+        # To tensor
+        pred_T[0] = torch.tensor(pred_T[0].detach())
+        pred_T[1] = torch.tensor(pred_T[1].detach())
+        pred_T = torch.cat(pred_T, dim=1)  # [32, 7]
 
-gt_pose = torch.tensor(gt_pose)
+        hint = hint.detach()
+        feature_T = feature_T.detach()
+        gt = torch.tensor(data['B'])
 
-gt_RofR = util.getRofR(gt_img,gt_pose)
+        SS_pred_T.append(util.getSelfSimilarity(pred_T))
+        SS_feature_T.append(util.getSelfSimilarity(feature_T))
+        SS_gt.append(util.getSelfSimilarity(gt))
+        feature_hint.append(hint)
+
+## KD-Student Training
 
 for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
     epoch_start_time = time.time()
@@ -69,12 +82,15 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
         total_steps += opt.batchSize
         epoch_iter += opt.batchSize
 
-        teacher.set_input(data)
-        teacher.test()
-        pred_T, feature_T = teacher.pred_B
+        # CS_A = util.getSelfCrossSimilarity(SS_feature_T[i], SS_pred_T[i])
+
+        # print("SS_feature_T[i] : ", SS_feature_T[i].shape)
+        # print("SS_gt[i] : ", SS_gt[i].shape)
+
+        CS_1_3 = util.getSelfCrossSimilarity(SS_feature_T[i], SS_gt[i])
 
         student.set_input(data)
-        student.optimize_parameters(dataset_size, gt_RofR, feature_T)
+        student.optimize_parameters(CS_1_3, feature_hint[i])
 
         if total_steps % opt.print_freq == 0:
             errors = student.get_current_errors()
@@ -82,7 +98,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
 
             # for k, v in errors.items():
-            # wandb.log({'%s'%k :v})
+            #   wandb.log({'%s'%k :v})
 
             if opt.display_id > 0:
                 visualizer.plot_current_errors(epoch, float(epoch_iter) / dataset_size, opt, errors)
@@ -97,16 +113,4 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
     student.update_learning_rate()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+# wandb.finish()

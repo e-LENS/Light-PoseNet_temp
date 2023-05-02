@@ -19,6 +19,7 @@ opt = TrainOptions().parse()
 # SoftLabel
 oneDivSqrtTwoPI = 1.0 / np.sqrt(2.0 * np.pi)  # normalization factor for Gaussians
 
+
 def gaussian_distribution(y, mu):
     sigma = opt.sigma
     sigma = torch.tensor(sigma, dtype=torch.int8)
@@ -30,72 +31,54 @@ def gaussian_distribution(y, mu):
     return (torch.exp(result) * torch.reciprocal(sigma)) * oneDivSqrtTwoPI
 
 
-def relationLoss(size, input_A ,RofR, S_pred, batchIndex):
-    # size : size of Dataset
-    # input_A : data of batch
-    # RofR : RoR map of fulll dataset
-    # S_pred : Student model output
-    # batchIndex : index list of batch
+def get_CS(X, Y):
+    SS_X = util.getSelfSimilarity(X)
+    SS_Y = util.getSelfSimilarity(Y)
 
-    input_A = torch.tensor(input_A)
+    CS = util.getSelfCrossSimilarity(SS_X, SS_Y)
 
-    S_pred[0] = torch.tensor(S_pred[0])
-    S_pred[1] = torch.tensor(S_pred[1])
-    S_pred = torch.cat(S_pred, dim = 1)
+    return CS
 
 
-    student_RofR = util.getRofR(input_A, S_pred)
+def featureLoss(feature_guided, feature_hint):
+    return torch.dist(feature_guided, feature_hint)
 
-    # get SubRoR
-    gt_subRofR = util.subRofR(size, RofR, batchIndex)
 
-    MSE_Loss = nn.MSELoss()
-
-    RofR_Loss = MSE_Loss(gt_subRofR, student_RofR)
-
-    return RofR_Loss
-
-def featureLoss(t_Feature, s_Feature):
-    # ToDo : Add options for select hint and guided layers
-
+def CSLoss(CS_A, CS_B):
     MSELoss = nn.MSELoss()
+    CSLoss = MSELoss(CS_A, CS_B)
 
-    return MSELoss(t_Feature, s_Feature)
+    return CSLoss
+
+
+class simLoss(nn.Module):
+    def __init__(self):
+        super(simLoss, self).__init__()
+
+    def forward(self, CS_1_3, pred_S, feature_S):
+        if opt.LossF == "RofR":
+            pred_S[0] = torch.tensor(pred_S[0], requires_grad=True)
+            pred_S[1] = torch.tensor(pred_S[1], requires_grad=True)
+            pred_S = torch.cat(pred_S, dim=1)  # [32, 7]
+
+            CS_2_5 = get_CS(feature_S, pred_S)
+            loss_cs = CSLoss(CS_1_3, CS_2_5)
+
+        return loss_cs
 
 
 # Knowledge Distillation loss
 alpha = opt.alpha
 
-class KDLoss(nn.Module):
-    def __init__(self):
-        super(KDLoss, self).__init__()
 
-    def forward(self, size, input_A , RofR, S_pred, batchIndex, t_Feature, s_Feature):
-        # size : size of Dataset
-        # input_A : image of Batch
-        # gt : Groundtruth label
-        # RofR : RofR for full data
-        # S_pred : Student model output
-        # batchIndex : Index list of batch
-        # t_Feature : Hint features
-        # s_Feature : Guided features
-
-        if opt.LossF == "RofR":
-            RofR_Loss = relationLoss(size, input_A ,RofR, S_pred, batchIndex)
-            hint_Loss = featureLoss(t_Feature, s_Feature)
-
-            #alpha = opt.alpha
-
-        return  RofR_Loss + hint_Loss
-
-
-class studentModel(BaseModel):
+class StudentModel(BaseModel):
     def name(self):
         return 'StudentModel'
 
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
         self.isTrain = opt.isTrain
+        self.isKD = opt.isKD
         # define tensors
         self.input_A = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
@@ -112,6 +95,7 @@ class studentModel(BaseModel):
 
         self.netG = networks.define_network(opt.input_nc, None, opt.model,
                                             init_from=googlenet_weights, isTest=not self.isTrain,
+                                            isKD=self.isKD,
                                             gpu_ids=self.gpu_ids)
 
         if not self.isTrain or opt.continue_train:
@@ -121,8 +105,9 @@ class studentModel(BaseModel):
             self.old_lr = opt.lr
             # define loss functions
             # self.criterion = torch.nn.MSELoss()
-            self.criterion = KDLoss()
+            # self.simLoss = simLoss()
             self.MSELoss = nn.MSELoss()
+            self.simLoss = simLoss()
 
             # initialize optimizers
             self.schedulers = []
@@ -136,15 +121,13 @@ class studentModel(BaseModel):
             #     self.schedulers.append(networks.get_scheduler(optimizer, opt))
 
         print('---------- Networks initialized -------------')
-        # networks.print_network(self.netG)
-        # print('-----------------------------------------------')
 
     def set_input(self, input):
         input_A = input['A']
         groundtruth = input['B']
         self.image_paths = input['A_paths']
 
-        self.batch_index = input['index_N']
+        # self.batch_index = input['index_N']
 
         self.input_A.resize_(input_A.size()).copy_(input_A)
         self.groundtruth.resize_(groundtruth.size()).copy_(groundtruth)
@@ -160,48 +143,35 @@ class studentModel(BaseModel):
     def get_image_paths(self):
         return self.image_paths
 
-    def backward(self, size, RofR, t_Feature):
+    def backward(self, CS_1_3, feature_hint):
         self.loss_G = 0
         self.loss_pos = 0
         self.loss_ori = 0
 
-        outputs, s_feature = self.pred_B
+        pred_S, feature_guided, feature_S = self.pred_B
+        # feature_S = feature_S.detach()
 
-        # loss_S
         pos_gt = self.groundtruth[:, 0:3]
         ori_gt = F.normalize(self.groundtruth[:, 3:], p=2, dim=1)
 
-        self.loss_pos += self.MSELoss(outputs[0], pos_gt)
+        self.loss_pos += self.MSELoss(pred_S[0], pos_gt)
+        self.loss_ori += self.MSELoss(pred_S[1], ori_gt)
 
-        # print("outputs[0]: ", outputs[0])
-        # print("pos_gt: ", pos_gt)
+        # 2. feature loss
+        loss_feature = torch.dist(feature_guided, feature_hint)
 
-        # print("outputs[1]: ", outputs[1])
-        # print("ori_gt: ", ori_gt)
+        # 3. similarity loss
 
-        self.loss_ori += self.MSELoss(outputs[1], ori_gt)
+        loss_sim = self.simLoss(CS_1_3, pred_S, feature_S)
 
-        # KD_Loss
-        KD_Loss = self.criterion(size, self.input_A, RofR, self.pred_B[0], self.batch_index,t_Feature, self.pred_B[1])
-
-        # loss_imit + loss_S
-        # self.loss_pos += self.MSELoss(outputs[0], pred_T[0]) * 0.4 + self.MSELoss(outputs[0], pos_gt) * 0.6
-        # self.loss_ori += self.MSELoss(outputs[1], pred_T[1]) * 0.4 + self.MSELoss(outputs[1], ori_gt) * 0.6
-
-        # loss_S_pos = self.MSELoss(outputs[0], pos_gt)
-        # loss_S_ori = self.MSELoss(outputs[1], ori_gt)
-        # loss_T_pos = self.MSELoss(pred_T[0], pos_gt)
-        # loss_T_ori = self.MSELoss(pred_T[1], ori_gt)
-
-        # feature_loss_coefficient = (loss_S_pos + loss_S_ori) / (loss_S_pos + loss_S_ori + loss_T_pos + loss_T_ori)
-
-        self.loss_G += self.loss_pos + self.loss_ori * self.opt.beta + KD_Loss
+        # Loss = response loss + feature loss + similarity loss
+        self.loss_G += self.loss_pos + self.loss_ori * self.opt.beta + loss_feature + loss_sim * opt.sigma
         self.loss_G.backward()
 
-    def optimize_parameters(self, size, RofR, t_Feature):
+    def optimize_parameters(self, CS_1_3, feature_hint):
         self.forward()
         self.optimizer_G.zero_grad()
-        self.backward(size, RofR, t_Feature)
+        self.backward(CS_1_3, feature_hint)
         self.optimizer_G.step()
 
     def get_current_errors(self):

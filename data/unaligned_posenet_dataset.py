@@ -7,11 +7,12 @@ import PIL
 import random
 import numpy
 
+
+
 class UnalignedPoseNetDataset(BaseDataset):
     def initialize(self, opt):
         self.opt = opt
         self.root = opt.dataroot
-
         split_file = os.path.join(self.root , 'dataset_'+opt.phase+'.txt')
         self.A_paths = numpy.loadtxt(split_file, dtype=str, delimiter=' ', skiprows=3, usecols=(0))
         self.A_paths = [os.path.join(self.root, path) for path in self.A_paths]
@@ -46,3 +47,7 @@ class UnalignedPoseNetDataset(BaseDataset):
 
     def name(self):
         return 'UnalignedPoseNetDataset'
+
+
+
+

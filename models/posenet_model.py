@@ -7,7 +7,7 @@ from torch.autograd import Variable
 import util.util as util
 from util.image_pool import ImagePool
 from .base_model import BaseModel
-from . import networks
+from . import resPoseNet
 import pickle
 import numpy
 
@@ -19,33 +19,38 @@ class PoseNetModel(BaseModel):
     def initialize(self, opt):
         BaseModel.initialize(self, opt)
         self.isTrain = opt.isTrain
+
+        self.isKD = opt.isKD
+
         # define tensors
         self.input_A = self.Tensor(opt.batchSize, opt.input_nc,
                                    opt.fineSize, opt.fineSize)
         self.input_B = self.Tensor(opt.batchSize, opt.output_nc)
 
         # load/define networks
-        googlenet_weights = None
+        resnet_weights = None
         if self.isTrain and opt.init_weights != '':
-            googlenet_file = open(opt.init_weights, "rb")
-            googlenet_weights = pickle.load(googlenet_file, encoding="bytes")
-            googlenet_file.close()
-            print('initializing the weights from '+ opt.init_weights)
-        self.mean_image = np.load(os.path.join(opt.dataroot , 'mean_image.npy'))
+            resnet_file = open(opt.init_weights, "rb")
+            resnet_weights = pickle.load(resnet_file, encoding="bytes")
+            resnet_file.close()
+            print('initializing the weights from ' + opt.init_weights)
+        self.mean_image = np.load(os.path.join(opt.dataroot, 'mean_image.npy'))
 
         if opt.isKD:
-            self.netG = networks.define_network(opt.input_nc, None, opt.T_model,
-                                                init_from=googlenet_weights, isTest=not self.isTrain,
+            self.netG = resPoseNet.define_network(opt.input_nc, opt.model,
+                                                init_from=resnet_weights, isTest=not self.isTrain,
+                                                #isKD=self.isKD,
                                                 gpu_ids=self.gpu_ids)
 
-        else:
-            self.netG = networks.define_network(opt.input_nc, None, opt.model,
-                                      init_from=googlenet_weights, isTest=not self.isTrain,
-                                      gpu_ids = self.gpu_ids)
+        else:  # !KD  def define_network(input_nc, model, init_from=None, isTest=False, gpu_ids=[]):
+            self.netG = resPoseNet.define_network(opt.input_nc, opt.model,
+                                                init_from=resnet_weights, isTest=not self.isTrain,
+                                                #isKD=self.isKD,
+                                                gpu_ids=self.gpu_ids)
 
-        if not self.isTrain or opt.continue_train :
-             if not opt.isKD : # 얘 추가
-                 self.load_network(self.netG, 'G', opt.which_epoch)
+        if not self.isTrain or opt.continue_train:
+            if not opt.isKD:  # 얘 추가
+                self.load_network(self.netG, 'G', opt.which_epoch)
 
         if self.isTrain:
             self.old_lr = opt.lr
@@ -89,20 +94,24 @@ class PoseNetModel(BaseModel):
         return self.image_paths
 
     def backward(self):
+        self.PoseNet_backward()
+
+    def PoseNet_backward(self):
         self.loss_G = 0
         self.loss_pos = 0
         self.loss_ori = 0
-        loss_weights = [0.3, 0.3, 1]
-        for l, w in enumerate(loss_weights):
-            mse_pos = self.criterion(self.pred_B[2*l], self.input_B[:, 0:3])
-            ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
-            mse_ori = self.criterion(self.pred_B[2*l+1], ori_gt)
-            self.loss_G += (mse_pos + mse_ori * self.opt.beta) * w
-            self.loss_pos += mse_pos.item() * w
-            self.loss_ori += mse_ori.item() * w * self.opt.beta
+
+        mse_pos = self.criterion(self.pred_B[0], self.input_B[:, 0:3])
+        ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
+        mse_ori = self.criterion(self.pred_B[1], ori_gt)
+        self.loss_G = (mse_pos + mse_ori * self.opt.beta)
+        self.loss_pos = mse_pos.item()
+        self.loss_ori += mse_ori.item() * self.opt.beta
+
         self.loss_G.backward()
 
     def onlyStudent_backward(self):
+
         self.loss_G = 0
         self.loss_pos = 0
         self.loss_ori = 0
@@ -119,13 +128,7 @@ class PoseNetModel(BaseModel):
     def optimize_parameters(self):
         self.forward()
         self.optimizer_G.zero_grad()
-
-        if self.opt.model == "posenet":
-            self.backward()
-        elif self.opt.model == "onlyStudent":
-            self.onlyStudent_backward()
-
-
+        self.backward()
         self.optimizer_G.step()
 
     def get_current_errors(self):
@@ -137,7 +140,7 @@ class PoseNetModel(BaseModel):
         pos_err = torch.dist(self.pred_B[0], self.input_B[:, 0:3])
         ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
         abs_distance = torch.abs((ori_gt.mul(self.pred_B[1])).sum())
-        ori_err = 2*180/numpy.pi* torch.acos(abs_distance)
+        ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
         return [pos_err.item(), ori_err.item()]
 
     def get_current_pose(self):

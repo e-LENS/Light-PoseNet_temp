@@ -24,7 +24,7 @@ class TrainOptions(BaseOptions):
         self.parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
         self.parser.add_argument('--init_weights', type=str, default='pretrained_models/places-googlenet.pickle', help='initiliaze network from, e.g., pretrained_models/places-googlenet.pickle')
 
-        self.parser.add_argument('--sigma', type=float, default=1, help='Sigma for gaussian distribution')
+        self.parser.add_argument('--sigma', type=float, default=1, help='Hyperparameter for CSLoss')
         self.parser.add_argument('--alpha', type=float, default=0.7, help='Hyperparameter for soft and hard loss proportion')
         self.parser.add_argument('--T_path', type=str, help='Path of teacher network')
         self.parser.add_argument('--T_model', type=str, default='posenet',
