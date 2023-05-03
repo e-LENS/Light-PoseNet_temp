@@ -6,27 +6,20 @@ import functools
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 import numpy as np
-from torchsummary import summary
+
+### Pretrained ###
+model_urls = {
+    'resnet18im': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
+    'resnet34im': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
+    'resnet50im': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+    'resnet101im': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
+    'resnet152im': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+}
 
 
 ###############################################################################
 # Functions
 ###############################################################################
-
-def weight_init_resnet(key, module, weights=None):
-
-    if weights is None:
-        init.constant_(module.bias.data, 0.0)
-        if key == "XYZ":
-            init.normal_(module.weight.data, 0.0, 0.5)
-        elif key == "WPQR":
-            init.normal_(module.weight.data, 0.0, 0.01)
-
-    else:
-        # print(key, weights[(key+"_1").encode()].shape, module.bias.size())
-        module.bias.data[...] = torch.from_numpy(weights[(key + "_1").encode()])
-        module.weight.data[...] = torch.from_numpy(weights[(key + "_0").encode()])
-    return module
 
 
 def get_scheduler(optimizer, opt):
@@ -44,8 +37,23 @@ def get_scheduler(optimizer, opt):
         return NotImplementedError('learning rate policy [%s] is not implemented', opt.lr_policy)
     return scheduler
 
+def weight_init_resnet(key, module, weights=None):
 
-def define_network(input_nc, model, init_from=None, isTest=False, gpu_ids=[]):
+    if weights is None:
+        init.constant_(module.bias.data, 0.0)
+        if key == "XYZ":
+            init.normal_(module.weight.data, 0.0, 0.5)
+        elif key == "WPQR":
+            init.normal_(module.weight.data, 0.0, 0.01)
+
+    else:
+        # print(key, weights[(key+"_1").encode()].shape, module.bias.size())
+        module.bias.data[...] = torch.from_numpy(weights[(key + "_1").encode()])
+        module.weight.data[...] = torch.from_numpy(weights[(key + "_0").encode()])
+    return module
+
+
+def define_network(input_nc, model, pretrained=True , init_from=None, isKD=False, isTest=False, gpu_ids=[]):
     netG = None
     use_gpu = len(gpu_ids) > 0
 
@@ -53,17 +61,16 @@ def define_network(input_nc, model, init_from=None, isTest=False, gpu_ids=[]):
         assert (torch.cuda.is_available())
 
     if model == 'resnet18':
-        netG = ResNet18(3, ResBlock, weights=init_from)
-        #netG = PoseNet(input_nc, weights=init_from, isTest=isTest, gpu_ids=gpu_ids)
+        netG = resnet18im(pretrained=pretrained, progress = True, isKD=isKD, isTest=isTest)
 
     elif model == 'resnet34':
-        netG = ResNet34(3, ResBlock, weights=init_from)
+        netG = resnet34im(pretrained=pretrained, progress = True, isKD=isKD, isTest=isTest)
 
     elif model == 'resnet50':
-        netG = ResNet50(3, ResBottleneckBlock, weights=init_from)
+        netG = resnet50im(pretrained=pretrained, progress = True, isKD=isKD, isTest=isTest)
 
     elif model == 'resnet101':
-        netG = ResNet101(3, ResBottleneckBlock, weights=init_from)
+        netG = resnet101im(pretrained=pretrained, progress = True, isKD=isKD, isTest=isTest)
 
     else:
         raise NotImplementedError('Model name [%s] is not recognized' % model)
@@ -86,8 +93,8 @@ class Regression(nn.Module):
         #self.projection = nn.AvgPool2d(kernel_size=7, stride=1)
         self.cls_fc_pose = nn.Sequential(*[weight_init_resnet("pose", nn.Linear(input_cls, mid_cls)),
                                            nn.ReLU(inplace=True)])
-        self.cls_fc_xy = weight_init_resnet("XYZ", nn.Linear(mid_cls, 3))
-        self.cls_fc_wpqr = weight_init_resnet("WPQR", nn.Linear(mid_cls, 4))
+        self.cls_fc_xy = weight_init_resnet("XYZ", nn.Linear(mid_cls, 3), weights=weights)
+        self.cls_fc_wpqr = weight_init_resnet("WPQR", nn.Linear(mid_cls, 4), weights=weights)
 
 
     def forward(self, input):
@@ -104,286 +111,261 @@ class Regression(nn.Module):
 ###############################################
 #              ResNet_PoseNet                 #
 ###############################################
-# Implementation Link : https://towardsdev.com/implement-resnet-with-pytorch-a9fb40a77448
+# Implementation Link 1 : https://towardsdev.com/implement-resnet-with-pytorch-a9fb40a77448
+# Implementation Link 2 : Attention feature distillation
+
+def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
+    """3x3 convolution with padding"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
+                     padding=dilation, groups=groups, bias=False, dilation=dilation)
 
 
-class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, downsample, weights=None):
-        super().__init__()
-        if downsample:
-            """
-            weight_init_googlenet("inception_" + incp + "/5x5",
-                                  nn.Conv2d(x5_reduce_nc, x5_nc, kernel_size=5, padding=2), weights),
-            """
-            self.conv1 = weight_init_resnet("conv1", nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1), weights)
-
-            self.shortcut = nn.Sequential(
-                weight_init_resnet("conv2", nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2),weights),
-                nn.BatchNorm2d(out_channels)
-            )
-        else:
-            self.conv1 = weight_init_resnet("conv1", nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1), weights)
-            self.shortcut = nn.Sequential()
-
-        self.conv2 = weight_init_resnet("conv2", nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1), weights)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-
-    def forward(self, input):
-        shortcut = self.shortcut(input)
-        input = nn.ReLU()(self.bn1(self.conv1(input)))
-        input = nn.ReLU()(self.bn2(self.conv2(input)))
-        input = input + shortcut
-        return nn.ReLU()(input)
+def conv1x1(in_planes, out_planes, stride=1):
+    """1x1 convolution"""
+    return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
 
-class ResBottleneckBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, downsample, weights=None):
-        super().__init__()
+
+class BasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+                 base_width=64, dilation=1, norm_layer=None):
+        super(BasicBlock, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        if groups != 1 or base_width != 64:
+            raise ValueError('BasicBlock only supports groups=1 and base_width=64')
+        if dilation > 1:
+            raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
+        # Both self.conv1 and self.downsample layers downsample the input when stride != 1
+        self.conv1 = conv3x3(inplanes, planes, stride)
+        self.bn1 = norm_layer(planes)
+        self.relu = nn.ReLU(inplace=False)
+        self.conv2 = conv3x3(planes, planes)
+        self.bn2 = norm_layer(planes)
         self.downsample = downsample
-        self.conv1 = weight_init_resnet("conv1", nn.Conv2d(in_channels, out_channels // 4, kernel_size=1, stride=1), weights)
-        self.conv2 = weight_init_resnet("conv2", nn.Conv2d(out_channels // 4, out_channels // 4, kernel_size=3, stride=2 if downsample else 1,
-                               padding=1), weights)
-        self.conv3 = weight_init_resnet("conv3", nn.Conv2d(out_channels // 4, out_channels, kernel_size=1, stride=1), weights)
-        self.shortcut = nn.Sequential()
+        self.stride = stride
 
-        if self.downsample or in_channels != out_channels:
-            self.shortcut = nn.Sequential(
-                weight_init_resnet("shortcut", nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2 if self.downsample else 1), weights),
-                nn.BatchNorm2d(out_channels)
+    def forward(self, x):
+        if isinstance(x, tuple):
+            x, features = x
+        else:
+            features = []
+        x = self.relu(x)
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        # out = self.relu(out)
+
+        return out, features + [out]
+
+
+class Bottleneck(nn.Module):
+    expansion = 4
+
+    def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
+                 base_width=64, dilation=1, norm_layer=None):
+        super(Bottleneck, self).__init__()
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        width = int(planes * (base_width / 64.)) * groups
+        # Both self.conv2 and self.downsample layers downsample the input when stride != 1
+        self.conv1 = conv1x1(inplanes, width)
+        self.bn1 = norm_layer(width)
+        self.conv2 = conv3x3(width, width, stride, groups, dilation)
+        self.bn2 = norm_layer(width)
+        self.conv3 = conv1x1(width, planes * self.expansion)
+        self.bn3 = norm_layer(planes * self.expansion)
+        self.relu = nn.ReLU(inplace=False)
+        self.downsample = downsample
+        self.stride = stride
+
+    def forward(self, x):
+        if isinstance(x, tuple):
+            x, features = x
+        else:
+            features = []
+        x = self.relu(x)
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+
+        out = self.conv3(out)
+        out = self.bn3(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out += identity
+        # out = self.relu(out)
+
+        return out, features + [out]
+
+
+class ResNet(nn.Module):
+
+    def __init__(self, block, layers, zero_init_residual=False,
+                 groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                 norm_layer=None,
+                 isKD=False, isTest=False
+                 ):
+        super(ResNet, self).__init__()
+
+        self.isKD = isKD
+
+        if norm_layer is None:
+            norm_layer = nn.BatchNorm2d
+        self._norm_layer = norm_layer
+
+        self.inplanes = 64
+        self.dilation = 1
+        if replace_stride_with_dilation is None:
+            # each element in the tuple indicates if we should replace
+            # the 2x2 stride with a dilated convolution instead
+            replace_stride_with_dilation = [False, False, False]
+        if len(replace_stride_with_dilation) != 3:
+            raise ValueError("replace_stride_with_dilation should be None "
+                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
+        self.groups = groups
+        self.base_width = width_per_group
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        self.bn1 = norm_layer(self.inplanes)
+        self.relu = nn.ReLU(inplace=False)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        self.layer1 = self._make_layer(block, 64, layers[0])
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
+                                       dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=2,
+                                       dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
+                                       dilate=replace_stride_with_dilation[2])
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(512 * block.expansion, 1000)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+        # Zero-initialize the last BN in each residual branch,
+        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
+        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
+        if zero_init_residual:
+            for m in self.modules():
+                if isinstance(m, Bottleneck):
+                    nn.init.constant_(m.bn3.weight, 0)
+                elif isinstance(m, BasicBlock):
+                    nn.init.constant_(m.bn2.weight, 0)
+
+    def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
+        norm_layer = self._norm_layer
+        downsample = None
+        previous_dilation = self.dilation
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
             )
 
-        self.bn1 = nn.BatchNorm2d(out_channels // 4)
-        self.bn2 = nn.BatchNorm2d(out_channels // 4)
-        self.bn3 = nn.BatchNorm2d(out_channels)
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
+                            self.base_width, previous_dilation, norm_layer))
+        self.inplanes = planes * block.expansion
+        for _ in range(1, blocks):
+            layers.append(block(self.inplanes, planes, groups=self.groups,
+                                base_width=self.base_width, dilation=self.dilation,
+                                norm_layer=norm_layer))
 
-    def forward(self, input):
-        shortcut = self.shortcut(input)
-        input = nn.ReLU()(self.bn1(self.conv1(input)))
-        input = nn.ReLU()(self.bn2(self.conv2(input)))
-        input = nn.ReLU()(self.bn3(self.conv3(input)))
-        input = input + shortcut
-        return nn.ReLU()(input)
+        return nn.Sequential(*layers)
 
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        f0 = x
+        # x = self.relu(x)
+        x = self.maxpool(x)
 
-class ResNet18(nn.Module):
-    def __init__(self, in_channels, resblock=ResBlock, weights=None):
-        super().__init__()
-
-        self.layer0 = nn.Sequential(
-            weight_init_resnet("layer0" , nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3), weights=weights),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU()
-        )
-
-        self.layer1 = nn.Sequential(
-            ResBlock(64, 64, downsample=False, weights=weights),
-            resblock(64, 64, downsample=False, weights=weights)
-        )
-
-        self.layer2 = nn.Sequential(
-            resblock(64, 128, downsample=True, weights=weights),
-            resblock(128, 128, downsample=False, weights=weights)
-        )
-
-        self.layer3 = nn.Sequential(
-            resblock(128, 256, downsample=True, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights)
-        )
+        x, f1 = self.layer1(x)
+        f1_act = [self.relu(f) for f in f1]
+        x, f2 = self.layer2(x)
+        f2_act = [self.relu(f) for f in f2]
+        x, f3 = self.layer3(x)
+        f3_act = [self.relu(f) for f in f3]
+        x, f4 = self.layer4(x)
+        f4_act = [self.relu(f) for f in f4]
+        x = self.avgpool(self.relu(x))
+        x = torch.flatten(x, 1)   # torch.flatten 부분 없앨지 상의
+        f5 = x
+        x = self.fc(x)
+        if self.isKD:
+            return [self.relu(f0)] + f1_act + f2_act + f3_act + f4_act + [f5], x
+        else:
+            return x
 
 
-        self.layer4 = nn.Sequential(
-            resblock(256, 512, downsample=True, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights)
-        )
-
-        self.gap = torch.nn.AdaptiveAvgPool2d(1)
-        self.fc = Regression(weights=None, input_cls=512, mid_cls=1024)
-
-    def forward(self, input):
-        input = self.layer0(input)
-        input = self.layer1(input)
-        input = self.layer2(input)
-        input = self.layer3(input)
-        input = self.layer4(input)
-        input = self.gap(input)
-        #input = torch.flatten(input)
-        input = self.fc(input)
-
-        return input
+def _resnet(arch, block, layers, pretrained, progress, isKD=False, isTest=False):
+    model = ResNet(block, layers, isKD=isKD, isTest=isTest)
+    if pretrained:
+        print("ResNet initialized with ImageNet Pretrained model.")
+        state_dict = torch.hub.load_state_dict_from_url(model_urls[arch])
+        model.load_state_dict(state_dict)
+    return model
 
 
+def resnet18im(pretrained=False, progress=True, isKD=False, isTest=False):
+    # Pretrained = True : ImageNet
 
-class ResNet34(nn.Module):
-    def __init__(self, in_channels, resblock, weights):
-        super().__init__()
-        self.layer0 = nn.Sequential(
-            weight_init_resnet("layer0", nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3), weights=weights),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU()
-        )
+    resnet18 = _resnet('resnet18im', BasicBlock, [2, 2, 2, 2], pretrained=pretrained, progress=progress, isKD=isKD, isTest=isTest)
+    resnet18.fc = Regression()
 
-        self.layer1 = nn.Sequential(
-            resblock(64, 64, downsample=False, weights=weights),
-            resblock(64, 64, downsample=False, weights=weights),
-            resblock(64, 64, downsample=False, weights=weights)
-        )
-
-        self.layer2 = nn.Sequential(
-            resblock(64, 128, downsample=True, weights=weights),
-            resblock(128, 128, downsample=False, weights=weights),
-            resblock(128, 128, downsample=False, weights=weights),
-            resblock(128, 128, downsample=False, weights=weights)
-        )
-
-        self.layer3 = nn.Sequential(
-            resblock(128, 256, downsample=True, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights)
-        )
+    return resnet18
 
 
-        self.layer4 = nn.Sequential(
-            resblock(256, 512, downsample=True, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-        )
+def resnet34im(pretrained=False, progress=True, isKD=False, isTest=False):
+    # Pretrained = True : ImageNet
+    resnet34 = _resnet('resnet34im', BasicBlock, [3, 4, 6, 3], pretrained, progress, isKD)
+    resnet34.fc = Regression()
 
-        self.gap = torch.nn.AdaptiveAvgPool2d(1)
-        self.fc = Regression(weights=None, input_cls=512, mid_cls=1024)
-
-    def forward(self, input):
-        input = self.layer0(input)
-        input = self.layer1(input)
-        input = self.layer2(input)
-        input = self.layer3(input)
-        input = self.layer4(input)
-        input = self.gap(input)  # torch.Size([75, 512, 1, 1])
-        #input = torch.flatten(input)
-
-        input = self.fc(input)
-
-        return input
+    return resnet34
 
 
-class ResNet50(nn.Module):
-    def __init__(self, in_channels, resblock, weights):
-        super().__init__()
-        self.layer0 = nn.Sequential(
-            weight_init_resnet("layer0", nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3), weights),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU()
-        )
+def resnet50im(pretrained=False, progress=True, isKD=False, isTest=False):
+    # Pretrained = True : ImageNet
+    resnet50 = _resnet('resnet50im', Bottleneck, [3, 4, 6, 3], pretrained, progress, isKD)
+    resnet50.fc = Regression(input_cls=2048)
 
-        filters = [64, 256, 512, 1024, 2048]
-
-        self.layer1 = nn.Sequential(
-            resblock(64, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-        )
-
-        self.layer2 = nn.Sequential(
-            resblock(256, 512, downsample=True, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-        )
-
-        self.layer3 = nn.Sequential(
-            resblock(512, 1024, downsample=True, weights=weights),
-            resblock(1024, 1024, downsample=False, weights=weights),
-            resblock(1024, 1024, downsample=False, weights=weights),
-            resblock(1024, 1024, downsample=False, weights=weights),
-            resblock(1024, 1024, downsample=False, weights=weights),
-            resblock(1024, 1024, downsample=False, weights=weights),
-        )
-
-        self.layer4 = nn.Sequential(
-            resblock(1024, 2048, downsample=True, weights=weights),
-            resblock(2048, 2048, downsample=False, weights=weights),
-            resblock(2048, 2048, downsample=False, weights=weights),
-        )
-
-        self.gap = torch.nn.AdaptiveAvgPool2d(1)
-        self.fc = Regression(weights=None, input_cls=2048, mid_cls=1024)
-
-    def forward(self, input):
-        input = self.layer0(input)
-        input = self.layer1(input)
-        input = self.layer2(input)
-        input = self.layer3(input)
-        input = self.layer4(input)
-        input = self.gap(input)
-        #print("self.gap(input) :", self.gap(input).shape)
-        #input = torch.flatten(input, start_dim=1)
-        input = self.fc(input)
-
-        return input
+    return resnet50
 
 
-class ResNet101(nn.Module):
-    def __init__(self, in_channels, resblock, weights):
-        super().__init__()
-        self.layer0 = nn.Sequential(
-            weight_init_resnet("layer0", nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3), weights=weights),
-            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU()
-        )
+def resnet101im(pretrained=False, progress=True, isKD=False, isTest=False):
+    # Pretrained = True : ImageNet
+    resnet101 = _resnet('resnet101im', Bottleneck, [3, 4, 23, 3], pretrained, progress, isKD)
+    resnet101.fc = Regression(input_cls=2048)
 
-        filters = [64, 256, 512, 1024, 2048]
-
-        self.layer1 = nn.Sequential(
-            resblock(64, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-            resblock(256, 256, downsample=False, weights=weights),
-        )
-
-        self.layer2 = nn.Sequential(
-            resblock(256, 512, downsample=True, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-            resblock(512, 512, downsample=False, weights=weights),
-        )
-
-        self.layer3 = nn.Sequential(
-            resblock(512, 1024, downsample=True, weights=weights),
-        )
-        for i in range(22):
-            self.layer3.add_module("layer2", resblock(1024, 1024, downsample=False, weights=weights))
-
-        self.layer4 = nn.Sequential(
-            resblock(1024, 2048, downsample=True, weights=weights),
-            resblock(2048, 2048, downsample=False, weights=weights),
-            resblock(2048, 2048, downsample=False, weights=weights),
-        )
-
-        self.gap = torch.nn.AdaptiveAvgPool2d(1)
-        self.fc = Regression(weights=None, input_cls=2048, mid_cls=1024)
-
-    def forward(self, input):
-        input = self.layer0(input)
-        input = self.layer1(input)
-        input = self.layer2(input)
-        input = self.layer3(input)
-        input = self.layer4(input)
-        input = self.gap(input)
-        #input = torch.flatten(input, start_dim=1)
-        input = self.fc(input)
-
-        return input
-
-
-
-
-
+    return resnet101
 
 
 
