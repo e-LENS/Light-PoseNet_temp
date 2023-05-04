@@ -21,6 +21,22 @@ model_urls = {
 # Functions
 ###############################################################################
 
+def weight_init_resnet(key, module, weights=None):
+
+    if weights is None:
+        init.constant_(module.bias.data, 0.0)
+        if key == "XYZ":
+            init.normal_(module.weight.data, 0.0, 0.5)
+        elif key == "WPQR":
+            init.normal_(module.weight.data, 0.0, 0.01)
+        else:
+            init.normal_(module.weight.data, 0.0, 0.01)
+    else:
+        # print(key, weights[(key+"_1").encode()].shape, module.bias.size())
+        module.bias.data[...] = torch.from_numpy(weights[(key + "_1").encode()])
+        module.weight.data[...] = torch.from_numpy(weights[(key + "_0").encode()])
+    return module
+
 
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'lambda':
