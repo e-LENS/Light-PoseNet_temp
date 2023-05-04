@@ -3,6 +3,9 @@ from options.train_options import TrainOptions
 from data.data_loader import CreateDataLoader
 from models.models import create_model
 from util.visualizer import Visualizer
+#from torchsummary import summary
+#from torchsummaryX import summary
+from torchinfo import summary
 
 opt = TrainOptions().parse()
 ## SEEDING
@@ -17,9 +20,9 @@ random.seed(opt.seed)
 torch.backends.cudnn.deterministic = True
 ## SEEDING
 
-#import wandb
+# import wandb
 
-#wandb.init(project="CS1325_LightPoseNet_heads_1000_1000_500_32", entity="e-lens-", name="posenet_heads_500_bt32")
+# wandb.init(project="ResNet_Kingscollege", entity="e-lens-", name="ResNet101_kingscollege_1000_batch32")
 
 data_loader = CreateDataLoader(opt)
 dataset = data_loader.load_data()
@@ -27,6 +30,8 @@ dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
 
 model = create_model(opt)
+summary(model.netG, (1, 3, 224, 224))
+
 visualizer = Visualizer(opt)
 total_steps = 0
 
@@ -51,7 +56,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             t = (time.time() - iter_start_time) / opt.batchSize
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
 
-            #for k, v in errors.items():
+            # for k, v in errors.items():
             #    wandb.log({'%s' % k: v})
 
             if opt.display_id > 0:
@@ -72,4 +77,4 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
     model.update_learning_rate()
 
-#wandb.finish()
+# wandb.finish()

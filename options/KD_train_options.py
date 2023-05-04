@@ -30,11 +30,13 @@ class KDTrainOptions(BaseOptions):
         self.parser.add_argument('--T_model', type=str, default='resnet50',
                                  help='chooses which model to use. [ resnet34 | resnet50 | resnet101 ]')
 
-        self.parser.add_argument('--hintmodule', type=int, default='5',
-                                 help='chooses which module feature map to use as hint and guided. [ 1 | 2 | 3 | 4 | 5 ]')
+        self.parser.add_argument('--hintmodule', nargs="+", type=int, default='5',
+                                 help='chooses which module feature maps to use as hint and guided. [ 1 | 2 | 3 | 4 | 5 ]')
 
-        self.parser.add_argument('--CSmodule', type=int, default='3',
-                                 help='chooses which module feature map to use as CSloss. [ 1 | 2 | 3 | 4 | 5 ]')
+        self.parser.add_argument('--CSmodule', nargs="+" ,type=int, default='3',
+                                 help='chooses which module feature maps to use as CSloss. [ 1 | 2 | 3 | 4 | 5 ]')
+        self.parser.add_argument('--KLCS', action='store_true',
+                                 help='if true, Use KLloss at CScriterion')
 
 
         self.isTrain = True
