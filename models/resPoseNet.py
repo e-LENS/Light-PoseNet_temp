@@ -21,22 +21,6 @@ model_urls = {
 # Functions
 ###############################################################################
 
-def weight_init_resnet(key, module, weights=None):
-
-    if weights is None:
-        init.constant_(module.bias.data, 0.0)
-        if key == "XYZ":
-            init.normal_(module.weight.data, 0.0, 0.5)
-        elif key == "WPQR":
-            init.normal_(module.weight.data, 0.0, 0.01)
-        else:
-            init.normal_(module.weight.data, 0.0, 0.01)
-    else:
-        # print(key, weights[(key+"_1").encode()].shape, module.bias.size())
-        module.bias.data[...] = torch.from_numpy(weights[(key + "_1").encode()])
-        module.weight.data[...] = torch.from_numpy(weights[(key + "_0").encode()])
-    return module
-
 
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'lambda':
@@ -184,7 +168,8 @@ class BasicBlock(nn.Module):
         out += identity
         # out = self.relu(out)
 
-        return out, features + [out]
+        #return out, features + [out]
+        return out, out
 
 
 class Bottleneck(nn.Module):
@@ -325,19 +310,24 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         x, f1 = self.layer1(x)
-        f1_act = [self.relu(f) for f in f1]
+        #f1_act = [self.relu(f) for f in f1]
+        f1_act = self.relu(f1)
         x, f2 = self.layer2(x)
-        f2_act = [self.relu(f) for f in f2]
+        #f2_act = [self.relu(f) for f in f2]
+        f2_act = self.relu(f2)
         x, f3 = self.layer3(x)
-        f3_act = [self.relu(f) for f in f3]
+        #f3_act = [self.relu(f) for f in f3]
+        f3_act = self.relu(f3)
         x, f4 = self.layer4(x)
-        f4_act = [self.relu(f) for f in f4]
+        #f4_act = [self.relu(f) for f in f4]
+        f4_act = self.relu(f4)
         x = self.avgpool(self.relu(x))
         x = torch.flatten(x, 1)   # torch.flatten 부분 없앨지 상의
         f5 = x
         x = self.fc(x)
         if self.isKD:
-            return [self.relu(f0)] + f1_act + f2_act + f3_act + f4_act + [f5], x
+            #return [self.relu(f0)] + f1_act + f2_act + f3_act + f4_act + [f5], x
+            return [self.relu(f0)] + [f1_act] + [f2_act] + [f3_act] + [f4_act] + [f5], x
         else:
             return x
 
