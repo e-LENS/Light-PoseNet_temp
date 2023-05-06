@@ -17,13 +17,16 @@ class DistillKL_Feature(nn.Module):
     # Distilling the Knowledge in a ResNet Module (Hint / Guided Module)
     def __init__(self):
         super(DistillKL_Feature, self).__init__()
-    def forward(self, feature_T, feature_S):
-        feature_S = F.normalize(feature_S, p=2, dim=1)
-        feature_T = F.normalize(feature_T, p=2, dim=1)
 
-        feature_S = F.log_softmax(feature_S, dim=1)
-        feature_T = F.softmax(feature_T, dim=1)
-        loss = F.kl_div(feature_S, feature_T, reduction='batchmean')
+    def forward(self, feature_T, feature_S):
+        loss = 0
+        for i in range(len(feature_T)):
+            feature_S[i] = F.normalize(feature_S[i], p=2, dim=1)
+            feature_T[i] = F.normalize(feature_T[i], p=2, dim=1)
+            feature_S[i] = F.log_softmax(feature_S[i], dim=1)
+            feature_T[i] = F.softmax(feature_T[i], dim=1)
+            loss += F.kl_div(feature_S[i], feature_T[i], reduction='batchmean')
+
         return loss
 
 
@@ -31,17 +34,20 @@ class Distill_CS(nn.Module):
     def __init__(self, isKL=False):
         super(Distill_CS, self).__init__()
         self.isKL = isKL
-        self.MSE = torch.nn.MSELoss
-    def forward(self, CS_T, CS_S):
-        if self.isKL:
-            CS_S = F.log_softmax(CS_S, dim=1)
-            CS_T = F.log_softmax(CS_T, dim=1)
+        self.MSE = torch.nn.MSELoss()
 
-            loss = F.kl_div(CS_S, CS_T, reduction='batchmean')
-            return loss
+    def forward(self, CS_T, CS_S):
+        loss = 0
+        if self.isKL:
+            for i in range(len(CS_T)):
+                CS_S[i] = F.log_softmax(CS_S[i], dim=1)
+                CS_T[i] = F.log_softmax(CS_T[i], dim=1)
+                loss += F.kl_div(CS_S, CS_T, reduction='batchmean')
+
         else:
-            loss = self.MSE(CS_S, CS_T)
-            return loss
+            for i in range(len(CS_T)):
+                loss += self.MSE(CS_S[i], CS_T[i])
+        return loss
 
 
 class PoseNetModel(BaseModel):
@@ -71,9 +77,9 @@ class PoseNetModel(BaseModel):
         self.mean_image = np.load(os.path.join(opt.dataroot, 'mean_image.npy'))
 
         self.netG = resPoseNet.define_network(opt.input_nc, opt.model, pretrained=self.pretrained,
-                                                init_from=resnet_weights, isTest=not self.isTrain,
-                                                isKD=self.isKD,
-                                                gpu_ids=self.gpu_ids)
+                                              init_from=resnet_weights, isTest=not self.isTrain,
+                                              isKD=self.isKD,
+                                              gpu_ids=self.gpu_ids)
 
         if not self.isTrain or opt.continue_train:
             if not opt.isKD:  # 얘 추가
@@ -114,14 +120,25 @@ class PoseNetModel(BaseModel):
             #     self.schedulers.append(networks.get_scheduler(optimizer, opt))
 
         if self.isKD:
-            self.Teacher = resPoseNet.define_network(opt.input_nc, opt.T_model,
+            print("###########  Set Teacher model   ###########")
+            self.Teacher = resPoseNet.define_network(opt.input_nc, opt.T_model, pretrained=False,
                                                      init_from=False, isTest=True,
                                                      isKD=self.isKD,
                                                      gpu_ids=self.gpu_ids)
             self.Teacher.load_state_dict(torch.load(opt.T_path))
 
-            self.hintmodule = opt.hintmodule
-            self.CSmodule = opt.CSmodule
+            # self.hintmodule = opt.hintmodule
+            # self.CSmodule = opt.CSmodule
+            if isinstance(opt.hintmodule, int):
+                self.hintmodule = list(opt.hintmodule)
+            else:
+                self.hintmodule = opt.hintmodule
+
+            if isinstance(opt.CSmodule, int):
+                self.CSmodule = list(opt.CSmodule)
+            else:
+                self.CSmodule = opt.CSmodule
+
 
         print('---------- Networks initialized -------------')
         # networks.print_network(self.netG)
@@ -133,33 +150,39 @@ class PoseNetModel(BaseModel):
         feat_guided = []
         with torch.no_grad():
             self.Teacher.eval()
-            output_t, feat_t = self.Teacher(self.input_A)
-            feat_CS.append(feat_t[i] for i in self.CSmodule)
-            feat_guided.append(feat_t[j] for j in self.hintmodule)
+            feat_t, output_t = self.Teacher(self.input_A)
+
+            for i in self.CSmodule:
+                feat_CS.append(feat_t[i - 1])
+            for j in self.hintmodule:
+                feat_guided.append(feat_t[j - 1])
 
             self.Tfeat = [f.detach() for f in feat_CS]
             self.Tfeat_hint = [k.detach() for k in feat_guided]
 
+
     def set_Sfeature(self):
         feat_CS = []
         feat_guided = []
-        feat_CS.append(self.feat_s[i] for i in self.CSmodule)
-        feat_guided.append(self.feat_s[j] for j in self.hintmodule)
+
+        for i in self.CSmodule:
+            feat_CS.append(self.feat_s[i - 1])
+        for j in self.hintmodule:
+            feat_guided.append(self.feat_s[j - 1])
 
         self.Sfeat = feat_CS
         self.Sfeat_guided = feat_guided
 
     def set_CS(self):
-        SS_Tfeat = util.getSelfSimilarity(self.feat)
-        SS_Gt = util.getSelfSimilarity(self.input_B)
+        SS_Tfeat = util.getSelfSimilarity(self.Tfeat)
         SS_Sfeat = util.getSelfSimilarity((self.Sfeat))
+        SS_Gt = util.getSelfSimilarity([self.input_B])
 
         CS_T_Gt = util.getSelfCrossSimilarity(SS_Tfeat, SS_Gt)
         CS_S_Gt = util.getSelfCrossSimilarity(SS_Sfeat, SS_Gt)
 
         self.CS_T_Gt = CS_T_Gt
         self.CS_S_Gt = CS_S_Gt
-
 
     def set_input(self, input):
         input_A = input['A']
@@ -171,7 +194,7 @@ class PoseNetModel(BaseModel):
 
     def forward(self):
         if self.isKD:
-            self.pred_B, self.feat_s = self.netG(self.input_A)
+            self.feat_s, self.pred_B = self.netG(self.input_A)
             self.set_Tfeature()
             self.set_Sfeature()
             self.set_CS()
@@ -189,9 +212,6 @@ class PoseNetModel(BaseModel):
         return self.image_paths
 
     def backward(self):
-        self.PoseNet_backward()
-
-    def PoseNet_backward(self):
         self.loss_Gt = 0
         self.loss_pos = 0
         self.loss_ori = 0
@@ -209,13 +229,13 @@ class PoseNetModel(BaseModel):
             self.loss_pos = mse_pos.item()
             self.loss_ori += mse_ori.item() * self.opt.beta
 
-            #Feature_Loss
+            # Feature_Loss
             self.loss_feature = criterion_KL(self.Sfeat_guided, self.Tfeat_hint)
 
-            #Cross-Similarity Loss
+            # Cross-Similarity Loss
             self.lossCS = criterion_CS(self.CS_T_Gt, self.CS_S_Gt)
 
-            self.loss_G = self.loss_Gt + self.loss_feature + self.lossCS
+            self.loss_G = self.loss_Gt + (self.loss_feature * self.opt.alpha) + (self.lossCS * self.opt.sigma)
 
         else:
             criterion_MSE = self.criterion
