@@ -53,6 +53,10 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             t = (time.time() - iter_start_time) / opt.batchSize
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
 
+            losses = student.get_current_errors()
+            # for loss_name, loss_value in losses:
+            #     wandb.log({'%s'%loss_name :loss_value})
+            #
             # for k, v in errors.items():
             #   wandb.log({'%s'%k :v})
 
