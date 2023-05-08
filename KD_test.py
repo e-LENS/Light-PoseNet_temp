@@ -2,7 +2,7 @@ import time
 import os
 from options.KD_test_options import TestOptions
 from data.data_loader import CreateDataLoader
-from models.models import KD_create_Smodel
+from models.models import create_model
 from util.visualizer import Visualizer
 from util import html
 import numpy
@@ -30,7 +30,7 @@ testfile = open(os.path.join(results_dir, 'test_median.txt'), 'a')
 testfile.write('epoch medX  medQ\n')
 testfile.write('==================\n')
 
-model = KD_create_Smodel(opt)
+model = create_model(opt)
 visualizer = Visualizer(opt)
 
 for testepoch in testepochs:
