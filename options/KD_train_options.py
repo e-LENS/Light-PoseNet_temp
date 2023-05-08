@@ -31,14 +31,17 @@ class KDTrainOptions(BaseOptions):
                                  help='chooses which model to use. [ resnet34 | resnet50 | resnet101 ]')
 
         self.parser.add_argument('-hintmodule', nargs='+', type=int, default=5,
-                                 help='chooses which module feature maps to use as hint and guided. [ 1 | 2 | 3 | 4 | 5 ]')
+                                 help='chooses which module feature maps to use as hint and guided. [ 1 | 2 | 3 | 4 | 5 | 6]')
 
         self.parser.add_argument('-CSmodule', nargs='+', type=int, default=3,
-                                 help='chooses which module feature maps to use as CSloss. [ 1 | 2 | 3 | 4 | 5 ]')
+                                 help='chooses which module feature maps to use as CSloss. [ 1 | 2 | 3 | 4 | 5 | 6 ]')
 
         self.parser.add_argument('--KLCS', action='store_true',
                                  help='if true, Use KLloss at CScriterion')
         self.parser.add_argument('--pretrained', type=bool, default=True, help='Use ImageNet pretrained resnet')
+
+        self.parser.add_argument('--layerTrans', type=str, default='1x1',
+                                 help='chooses which model to use. [ 1x1 | fc | attention ]')
 
         self.isTrain = True
         self.isKD = True
