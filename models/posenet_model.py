@@ -131,7 +131,7 @@ class PoseNetModel(BaseModel):
             # for optimizer in self.optimizers:
             #     self.schedulers.append(networks.get_scheduler(optimizer, opt))
 
-        if self.isKD:
+        if self.isKD and self.isTrain:
 
             print("###########  Set Teacher model   ###########")
 
@@ -207,7 +207,7 @@ class PoseNetModel(BaseModel):
         self.input_B.resize_(input_B.size()).copy_(input_B)
 
     def forward(self):
-        if self.isKD:
+        if self.isKD and self.isTrain:
             self.feat_s, self.pred_B = self.netG(self.input_A)
             self.set_Tfeature()
             self.set_Sfeature()
@@ -269,7 +269,7 @@ class PoseNetModel(BaseModel):
         self.optimizer_G.step()
 
     def get_current_loss(self):
-        if self.opt.isKD:
+        if self.opt.isKD and self.opt.isTrain:
             return OrderedDict([('loss_Gt', self.loss_Gt),
                            ('loss_feature', self.loss_feature),
                            ('loss_CS', self.lossCS)])
@@ -281,16 +281,27 @@ class PoseNetModel(BaseModel):
             return OrderedDict([('pos_err', self.loss_pos),
                                 ('ori_err', self.loss_ori),
                                 ])
-
-        pos_err = torch.dist(self.pred_B[0], self.input_B[:, 0:3])
-        ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
-        abs_distance = torch.abs((ori_gt.mul(self.pred_B[1])).sum())
-        ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
+        if self.opt.isTrain:
+            pos_err = torch.dist(self.pred_B[0], self.input_B[:, 0:3])
+            ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
+            abs_distance = torch.abs((ori_gt.mul(self.pred_B[1])).sum())
+            ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
+        else :
+            pos_err = torch.dist(self.pred_B[-1][0], self.input_B[:, 0:3])
+            ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
+            abs_distance = torch.abs((ori_gt.mul(self.pred_B[-1][1])).sum())
+            ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
         return [pos_err.item(), ori_err.item()]
 
     def get_current_pose(self):
-        return numpy.concatenate((self.pred_B[0].data[0].cpu().numpy(),
-                                  self.pred_B[1].data[0].cpu().numpy()))
+
+        if self.opt.isTrain:
+            return numpy.concatenate((self.pred_B[0].data[0].cpu().numpy(),
+                                      self.pred_B[1].data[0].cpu().numpy()))
+        else:
+            return numpy.concatenate((self.pred_B[-1][0].data[0].cpu().numpy(),
+                                      self.pred_B[-1][1].data[0].cpu().numpy()))
+
 
     def get_current_visuals(self):
         input_A = util.tensor2im(self.input_A.data)
