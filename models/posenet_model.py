@@ -22,11 +22,9 @@ class DistillKL_Feature(nn.Module):
     def forward(self, feature_S, feature_T):
         loss = 0
         for i in range(len(feature_T)):
-            print("feature_S[", i, "].shape :", feature_S[i].shape)
             if feature_T[i].shape[1] != feature_S[i].shape[1]:
                 Trans = resPoseNet.Trans_Student(feature_S[i].shape[1], feature_T[i].shape[1])
                 feature_S[i] = Trans(feature_S[i])
-                print("Trans_feature_S[", i, "].shape :", feature_S[i].shape)
 
             feature_S[i] = F.normalize(feature_S[i], p=2, dim=1)
             feature_T[i] = F.normalize(feature_T[i], p=2, dim=1)
