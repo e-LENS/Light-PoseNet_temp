@@ -11,21 +11,30 @@ from .base_model import BaseModel
 from . import resPoseNet
 import pickle
 import numpy
+from torchinfo import summary
 
 
 class DistillKL_Feature(nn.Module):
     # Distilling the Knowledge in a ResNet Module (Hint / Guided Module)
-    def __init__(self):
+    def __init__(self, layerTrans):
         super(DistillKL_Feature, self).__init__()
 
-    def forward(self, feature_T, feature_S):
+    def forward(self, feature_S, feature_T):
         loss = 0
         for i in range(len(feature_T)):
+            print("feature_S[", i, "].shape :", feature_S[i].shape)
+            if feature_T[i].shape[1] != feature_S[i].shape[1]:
+                Trans = resPoseNet.Trans_Student(feature_S[i].shape[1], feature_T[i].shape[1])
+                feature_S[i] = Trans(feature_S[i])
+                print("Trans_feature_S[", i, "].shape :", feature_S[i].shape)
+
             feature_S[i] = F.normalize(feature_S[i], p=2, dim=1)
             feature_T[i] = F.normalize(feature_T[i], p=2, dim=1)
             feature_S[i] = F.log_softmax(feature_S[i], dim=1)
             feature_T[i] = F.softmax(feature_T[i], dim=1)
             loss += F.kl_div(feature_S[i], feature_T[i], reduction='batchmean')
+
+        # if self.layerTrans=="attention":
 
         return loss
 
@@ -41,7 +50,7 @@ class Distill_CS(nn.Module):
         if self.isKL:
             for i in range(len(CS_T)):
                 CS_S[i] = F.log_softmax(CS_S[i], dim=1)
-                CS_T[i] = F.log_softmax(CS_T[i], dim=1)
+                CS_T[i] = F.softmax(CS_T[i], dim=1)
                 loss += F.kl_div(CS_S, CS_T, reduction='batchmean')
 
         else:
@@ -85,15 +94,18 @@ class PoseNetModel(BaseModel):
             if not opt.isKD:  # 얘 추가
                 self.load_network(self.netG, 'G', opt.which_epoch)
 
+        summary(self.netG, (1, 3, 224, 224))
+
         if self.isTrain:
             self.old_lr = opt.lr
             # define loss functions
-
             criterion_MSE = torch.nn.MSELoss()
-            criterion_KLfeatures = DistillKL_Feature()
-            criterion_CS = Distill_CS()
 
             if self.isKD:
+                self.isKL = opt.KLCS
+                self.layerTrans = opt.layerTrans
+                criterion_KLfeatures = DistillKL_Feature(opt.layerTrans)
+                criterion_CS = Distill_CS(self.isKL)
                 criterion = torch.nn.ModuleList([])
                 criterion.append(criterion_MSE)
                 criterion.append(criterion_KLfeatures)
@@ -120,12 +132,15 @@ class PoseNetModel(BaseModel):
             #     self.schedulers.append(networks.get_scheduler(optimizer, opt))
 
         if self.isKD:
+
             print("###########  Set Teacher model   ###########")
+
             self.Teacher = resPoseNet.define_network(opt.input_nc, opt.T_model, pretrained=False,
                                                      init_from=False, isTest=True,
                                                      isKD=self.isKD,
                                                      gpu_ids=self.gpu_ids)
             self.Teacher.load_state_dict(torch.load(opt.T_path))
+            summary(self.Teacher, (1, 3, 224, 224))
 
             # self.hintmodule = opt.hintmodule
             # self.CSmodule = opt.CSmodule
@@ -138,7 +153,6 @@ class PoseNetModel(BaseModel):
                 self.CSmodule = list(opt.CSmodule)
             else:
                 self.CSmodule = opt.CSmodule
-
 
         print('---------- Networks initialized -------------')
         # networks.print_network(self.netG)
@@ -253,6 +267,14 @@ class PoseNetModel(BaseModel):
         self.optimizer_G.zero_grad()
         self.backward()
         self.optimizer_G.step()
+
+    def get_current_loss(self):
+        if self.opt.isKD:
+            return OrderedDict([('loss_Gt', self.loss_Gt),
+                           ('loss_feature', self.loss_feature),
+                           ('loss_CS', self.lossCS)])
+        else:
+            return OrderedDict([('loss_Gt', self.loss_Gt)])
 
     def get_current_errors(self):
         if self.opt.isTrain:

@@ -201,12 +201,10 @@ class Bottleneck(nn.Module):
 
         out += identity
         # out = self.relu(out)
-
-        return out, features + [out]
-
+        #return out, features + [out]
+        return out, out
 
 class ResNet(nn.Module):
-
     def __init__(self, block, layers, zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None,
@@ -243,8 +241,11 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2])
+
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * block.expansion, 1000)
+
+        self.layersize = []
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -311,10 +312,22 @@ class ResNet(nn.Module):
         f5 = x
         x = self.fc(x)
         if self.isKD:
-            #return [self.relu(f0)] + f1_act + f2_act + f3_act + f4_act + [f5], x
             return [self.relu(f0)] + [f1_act] + [f2_act] + [f3_act] + [f4_act] + [f5], x
         else:
             return x
+
+class Trans_Student(nn.Module):
+    def __init__(self, input, output):
+        super(Trans_Student, self).__init__()
+
+        self.conv1x1 = conv1x1(in_planes=input, out_planes=output, stride=1).to('cuda')
+        self.relu = nn.ReLU(inplace=False)
+
+    def forward(self, s_feature):
+        s_feature = self.conv1x1(s_feature)
+        s_feature = self.relu(s_feature)
+
+        return s_feature
 
 
 def _resnet(arch, block, layers, pretrained, progress, isKD=False, isTest=False):

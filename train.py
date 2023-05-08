@@ -5,7 +5,7 @@ from models.models import create_model
 from util.visualizer import Visualizer
 #from torchsummary import summary
 #from torchsummaryX import summary
-from torchinfo import summary
+
 
 opt = TrainOptions().parse()
 ## SEEDING
@@ -30,7 +30,7 @@ dataset_size = len(data_loader)
 print('#training images = %d' % dataset_size)
 
 model = create_model(opt)
-summary(model.netG, (1, 3, 224, 224))
+
 
 visualizer = Visualizer(opt)
 total_steps = 0
