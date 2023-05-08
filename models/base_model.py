@@ -37,6 +37,9 @@ class BaseModel():
     def get_current_visuals(self):
         return self.input
 
+    def get_current_loss(self):
+        return {}
+
     def get_current_errors(self):
         return {}
 
