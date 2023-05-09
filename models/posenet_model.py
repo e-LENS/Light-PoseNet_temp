@@ -76,11 +76,7 @@ class PoseNetModel(BaseModel):
 
         # load/define networks
         resnet_weights = None
-        if self.isTrain and opt.init_weights != None:
-            resnet_file = open(opt.init_weights, "rb")
-            resnet_weights = pickle.load(resnet_file, encoding="bytes")
-            resnet_file.close()
-            print('initializing the weights from ' + opt.init_weights)
+
         self.mean_image = np.load(os.path.join(opt.dataroot, 'mean_image.npy'))
 
         self.netG = resPoseNet.define_network(opt.input_nc, opt.model, pretrained=self.pretrained,
@@ -274,31 +270,40 @@ class PoseNetModel(BaseModel):
         else:
             return OrderedDict([('loss_Gt', self.loss_Gt)])
 
+    def get_scaled_loss(self):
+
+        return OrderedDict([('Scaled_loss_Gt', self.loss_Gt),
+                       ('Scaled_loss_feature', self.loss_feature * self.opt.alpha),
+                       ('Scaled_loss_CS', self.lossCS* self.opt.sigma)])
+
     def get_current_errors(self):
         if self.opt.isTrain:
             return OrderedDict([('pos_err', self.loss_pos),
                                 ('ori_err', self.loss_ori),
                                 ])
-        if self.opt.isTrain:
-            pos_err = torch.dist(self.pred_B[0], self.input_B[:, 0:3])
-            ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
-            abs_distance = torch.abs((ori_gt.mul(self.pred_B[1])).sum())
-            ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
-        else :
-            pos_err = torch.dist(self.pred_B[-1][0], self.input_B[:, 0:3])
-            ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
-            abs_distance = torch.abs((ori_gt.mul(self.pred_B[-1][1])).sum())
-            ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
+        else:
+            if self.opt.isKD:
+                pos_err = torch.dist(self.pred_B[-1][0], self.input_B[:, 0:3])
+                ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
+                abs_distance = torch.abs((ori_gt.mul(self.pred_B[-1][1])).sum())
+                ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
+            else:
+                pos_err = torch.dist(self.pred_B[0], self.input_B[:, 0:3])
+                ori_gt = F.normalize(self.input_B[:, 3:], p=2, dim=1)
+                abs_distance = torch.abs((ori_gt.mul(self.pred_B[1])).sum())
+                ori_err = 2 * 180 / numpy.pi * torch.acos(abs_distance)
+
         return [pos_err.item(), ori_err.item()]
+
 
     def get_current_pose(self):
 
-        if self.opt.isTrain:
-            return numpy.concatenate((self.pred_B[0].data[0].cpu().numpy(),
-                                      self.pred_B[1].data[0].cpu().numpy()))
-        else:
+        if self.opt.isKD:
             return numpy.concatenate((self.pred_B[-1][0].data[0].cpu().numpy(),
                                       self.pred_B[-1][1].data[0].cpu().numpy()))
+        else:
+            return numpy.concatenate((self.pred_B[0].data[0].cpu().numpy(),
+                                      self.pred_B[1].data[0].cpu().numpy()))
 
 
     def get_current_visuals(self):
