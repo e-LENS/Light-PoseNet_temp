@@ -11,7 +11,6 @@ from .base_model import BaseModel
 from . import resPoseNet
 import pickle
 import numpy
-from torchinfo import summary
 
 
 class DistillKL_Feature(nn.Module):
@@ -31,8 +30,6 @@ class DistillKL_Feature(nn.Module):
             feature_S[i] = F.log_softmax(feature_S[i], dim=1)
             feature_T[i] = F.softmax(feature_T[i], dim=1)
             loss += F.kl_div(feature_S[i], feature_T[i], reduction='batchmean')
-
-        # if self.layerTrans=="attention":
 
         return loss
 
@@ -88,8 +85,6 @@ class PoseNetModel(BaseModel):
             if not opt.isKD:  # 얘 추가
                 self.load_network(self.netG, 'G', opt.which_epoch)
 
-        summary(self.netG, (1, 3, 224, 224))
-
         if self.isTrain:
             self.old_lr = opt.lr
             # define loss functions
@@ -134,7 +129,6 @@ class PoseNetModel(BaseModel):
                                                      isKD=self.isKD,
                                                      gpu_ids=self.gpu_ids)
             self.Teacher.load_state_dict(torch.load(opt.T_path))
-            summary(self.Teacher, (1, 3, 224, 224))
 
             # self.hintmodule = opt.hintmodule
             # self.CSmodule = opt.CSmodule
