@@ -82,7 +82,7 @@ class PoseNetModel(BaseModel):
                                               gpu_ids=self.gpu_ids)
 
         if not self.isTrain or opt.continue_train:
-            if not opt.isKD:  # 얘 추가
+            if not opt.isKD:
                 self.load_network(self.netG, 'G', opt.which_epoch)
 
         if self.isTrain:
