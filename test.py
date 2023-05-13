@@ -22,10 +22,7 @@ if not os.path.exists(results_dir):
     os.makedirs(results_dir)
 
 besterror  = [0, float('inf'), float('inf')] # nepoch, medX, medQ
-if opt.model == 'posenet':
-    testepochs = numpy.arange(5, 500+1, 5)
-else:
-    testepochs = numpy.arange(450, 1200+1, 5)
+testepochs=[50]
 
 testfile = open(os.path.join(results_dir, 'test_median.txt'), 'a')
 testfile.write('epoch medX  medQ\n')
