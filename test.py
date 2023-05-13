@@ -8,10 +8,6 @@ from util import html
 import numpy
 import torch
 
-#import wandb
-
-#wandb.init(project="Test_CS1325_LightPoseNet_heads_1000_1000_500_32", entity="e-lens-", name="posenet_heads_500_bt32")
-
 opt = TestOptions().parse()
 opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
@@ -57,9 +53,6 @@ for testepoch in testepochs:
         #visualizer.save_estimated_pose(image_path, pose)
         err_p, err_o = model.get_current_errors()
 
-        #wandb.log({'pos_error' : err_p,
-         #           'ori_error' : err_o})
-
         # err_pos.append(err_p)
         # err_ori.append(err_o)
         err.append([err_p, err_o])
@@ -80,5 +73,3 @@ testfile.write('-----------------\n')
 testfile.write("{0:<5} {1:.2f}m {2:.2f}°\n".format(*besterror))
 testfile.write('==================\n')
 testfile.close()
-
-#wandb.finish()
