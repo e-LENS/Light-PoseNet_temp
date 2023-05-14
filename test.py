@@ -8,6 +8,7 @@ from util import html
 import numpy
 import torch
 
+
 opt = TestOptions().parse()
 opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
@@ -22,7 +23,10 @@ if not os.path.exists(results_dir):
     os.makedirs(results_dir)
 
 besterror  = [0, float('inf'), float('inf')] # nepoch, medX, medQ
-testepochs=[50]
+if opt.model == 'posenet':
+    testepochs = numpy.arange(5, 500+1, 5)
+else:
+    testepochs = numpy.arange(450, 470+1, 5)
 
 testfile = open(os.path.join(results_dir, 'test_median.txt'), 'a')
 testfile.write('epoch medX  medQ\n')
@@ -31,6 +35,7 @@ testfile.write('==================\n')
 model = create_model(opt)
 visualizer = Visualizer(opt)
 
+syn = []
 
 for testepoch in testepochs:
     model.load_network(model.netG, 'G', testepoch)
@@ -40,6 +45,7 @@ for testepoch in testepochs:
     # err_ori = []
     err = []
     print("epoch: "+ str(testepoch))
+    model.timings=[]
     for i, data in enumerate(dataset):
         model.set_input(data)
         model.test()
@@ -53,6 +59,10 @@ for testepoch in testepochs:
         # err_pos.append(err_p)
         # err_ori.append(err_o)
         err.append([err_p, err_o])
+    timings = sum(model.timings)/len(model.timings)
+    print(model.timings)
+    print(len(model.timings))
+    syn.append(timings)
 
     median_pos = numpy.median(err, axis=0)
     if median_pos[0] < besterror[1]:
@@ -70,3 +80,8 @@ testfile.write('-----------------\n')
 testfile.write("{0:<5} {1:.2f}m {2:.2f}°\n".format(*besterror))
 testfile.write('==================\n')
 testfile.close()
+
+mean_syn = sum(syn)/len(syn)
+print("mean_syn : ", mean_syn)
+
+
