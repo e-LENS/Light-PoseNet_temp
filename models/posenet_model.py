@@ -11,6 +11,7 @@ from .base_model import BaseModel
 from . import resPoseNet
 import pickle
 import numpy
+from torchinfo import summary
 
 
 class DistillKL_Feature(nn.Module):
@@ -30,6 +31,8 @@ class DistillKL_Feature(nn.Module):
             feature_S[i] = F.log_softmax(feature_S[i], dim=1)
             feature_T[i] = F.softmax(feature_T[i], dim=1)
             loss += F.kl_div(feature_S[i], feature_T[i], reduction='batchmean')
+
+        # if self.layerTrans=="attention":
 
         return loss
 
@@ -82,8 +85,10 @@ class PoseNetModel(BaseModel):
                                               gpu_ids=self.gpu_ids)
 
         if not self.isTrain or opt.continue_train:
-            if not opt.isKD:
+            if not opt.isKD:  # 얘 추가
                 self.load_network(self.netG, 'G', opt.which_epoch)
+
+        summary(self.netG, (1, 3, 224, 224))
 
         if self.isTrain:
             self.old_lr = opt.lr
@@ -129,6 +134,7 @@ class PoseNetModel(BaseModel):
                                                      isKD=self.isKD,
                                                      gpu_ids=self.gpu_ids)
             self.Teacher.load_state_dict(torch.load(opt.T_path))
+            summary(self.Teacher, (1, 3, 224, 224))
 
             # self.hintmodule = opt.hintmodule
             # self.CSmodule = opt.CSmodule
@@ -141,6 +147,17 @@ class PoseNetModel(BaseModel):
                 self.CSmodule = list(opt.CSmodule)
             else:
                 self.CSmodule = opt.CSmodule
+
+        ### For inference time
+        device = torch.device("cuda")
+        dummy_input = torch.randn(1, 3, 224, 224, dtype=torch.float).to(device)
+        for _ in range(10):
+          _ = self.netG(dummy_input)
+
+        if not self.isTrain:
+            self.starter = torch.cuda.Event(enable_timing=True)
+            self.ender = torch.cuda.Event(enable_timing=True)
+            self.timings = []
 
         print('---------- Networks initialized -------------')
         # networks.print_network(self.netG)
@@ -186,6 +203,7 @@ class PoseNetModel(BaseModel):
         self.CS_T_Gt = CS_T_Gt
         self.CS_S_Gt = CS_S_Gt
 
+
     def set_input(self, input):
         input_A = input['A']
         input_B = input['B']
@@ -207,7 +225,13 @@ class PoseNetModel(BaseModel):
     def test(self):
         with torch.no_grad():
             self.netG.eval()
+
+            self.starter.record()
             self.forward()
+            self.ender.record()
+            torch.cuda.synchronize()
+            curr_time = self.starter.elapsed_time(self.ender)
+            self.timings.append(curr_time)
 
     # get image paths
     def get_image_paths(self):
