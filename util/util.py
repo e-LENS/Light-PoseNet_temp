@@ -105,7 +105,7 @@ def getSelfSimilarity(input_m):
 def getSelfCrossSimilarity(ssFeature, ssGt):
     SelfCrossSimilarity = []
     cosine = torch.nn.CosineSimilarity()
-    for i in len(ssFeature) :
+    for i in range(len(ssFeature)) :
         temp = cosine(ssFeature[i], ssGt[i])
         temp = temp.view([-1])
         SelfCrossSimilarity.append(temp)
