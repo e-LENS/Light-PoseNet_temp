@@ -90,16 +90,25 @@ def getSelfSimilarity(input_m):
     return sim
 
 
-def getSelfCrossSimilarity(ssFeature, ssGt):
+# def getSelfCrossSimilarity(ssFeature, ssGt):
 
+#     SelfCrossSimilarity = []
+#     cosine = torch.nn.CosineSimilarity()
+#     for ssF in ssFeature:
+#       for ssgt in ssGt:
+#         temp = cosine(ssF, ssgt)
+#         temp = temp.view([-1])
+#         SelfCrossSimilarity.append(temp)
+
+#     return SelfCrossSimilarity
+
+def getSelfCrossSimilarity(ssFeature, ssGt):
     SelfCrossSimilarity = []
     cosine = torch.nn.CosineSimilarity()
-    for ssF in ssFeature:
-      for ssgt in ssGt:
-        temp = cosine(ssF, ssgt)
+    for i in len(ssFeature) :
+        temp = cosine(ssFeature[i], ssGt[i])
         temp = temp.view([-1])
         SelfCrossSimilarity.append(temp)
-
     return SelfCrossSimilarity
 
 
