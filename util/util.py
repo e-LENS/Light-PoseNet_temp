@@ -90,26 +90,17 @@ def getSelfSimilarity(input_m):
     return sim
 
 
-# def getSelfCrossSimilarity(ssFeature, ssGt):
+ def getSelfCrossSimilarity(ssFeature, ssGt):
 
-#     SelfCrossSimilarity = []
-#     cosine = torch.nn.CosineSimilarity()
-#     for ssF in ssFeature:
-#       for ssgt in ssGt:
-#         temp = cosine(ssF, ssgt)
-#         temp = temp.view([-1])
-#         SelfCrossSimilarity.append(temp)
+     SelfCrossSimilarity = []
+     cosine = torch.nn.CosineSimilarity()
+     for ssF in ssFeature:
+       for ssgt in ssGt:
+         temp = cosine(ssF, ssgt)
+         temp = temp.view([-1])
+         SelfCrossSimilarity.append(temp)
 
-#     return SelfCrossSimilarity
-
-def getSelfCrossSimilarity(ssFeature, ssGt):
-    SelfCrossSimilarity = []
-    cosine = torch.nn.CosineSimilarity()
-    for i in range(len(ssFeature)) :
-        temp = cosine(ssFeature[i], ssGt[i])
-        temp = temp.view([-1])
-        SelfCrossSimilarity.append(temp)
-    return SelfCrossSimilarity
+     return SelfCrossSimilarity
 
 
 def getIndex(size, index_A, index_B):
@@ -121,22 +112,4 @@ def getIndex(size, index_A, index_B):
     w = torch.as_tensor(w, dtype=torch.int64)
     return w
 
-
-def subSelfCrossSimilarity(size, SelfCrossSimilarity, batchIndex):  # Batchsize = 75
-    num = len(batchIndex)
-    r_Index = []
-
-    for i, index in enumerate(batchIndex):
-        index_A = index
-        for j, index_2 in enumerate(batchIndex):
-            index_B = index_2
-            r_Index.append(getIndex(size, index_A, index_B))
-    # print('length : ', len(r_Index))
-
-    r_Index = torch.tensor(r_Index).unsqueeze(axis=-1)
-    r_Index = r_Index.view([-1]).squeeze()
-
-    sub_SelfCrossSimilarity = torch.gather(SelfCrossSimilarity, dim=0, index=r_Index)
-
-    return sub_SelfCrossSimilarity.cuda()
 
