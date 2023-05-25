@@ -103,13 +103,3 @@ def getSelfSimilarity(input_m):
      return SelfCrossSimilarity
 
 
-def getIndex(size, index_A, index_B):
-    """
-      w = size * index_A + index_B - (index_A + 1) * (index_A + 2) * 0.5
-      w = torch.as_tensor(w, dtype=torch.int64)
-    """
-    w = (size * index_A) + index_B
-    w = torch.as_tensor(w, dtype=torch.int64)
-    return w
-
-
