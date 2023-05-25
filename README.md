@@ -89,11 +89,11 @@ Train & Test the PoseNet model on each dataset
 * 학습된 모델 및 학습 결과는 `./checkpoints/[name]`에 저장됨
 * 학습된 모델의 테스트 결과는 `./results/[name]`에 저장됨
 
-```
+
 
 ---
-
 ### reference
+
 참고한 repo
 - https://github.com/hazirbas/poselstm-pytorch
 - https://github.com/HobbitLong/RepDistiller
