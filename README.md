@@ -53,12 +53,9 @@ posenet-pytorch/7scenes_preprocessing.py
 4x4 => position(X,Y,Z) & Orientation quaternion(W,P,Q,R) 로 label을 변환한다. 
 
 
-## PoseNet
+## SCKD
 
 Train & Test the PoseNet model on each dataset
-
-### Initialize the network
-To use pretrained googlenet trained on the Places dataset, download [places-googlenet.pickle](https://vision.in.tum.de/webarchive/hazirbas/poselstm-pytorch/places-googlenet.pickle) under `pretrained_models` folder
 
 
 ### Train Teacher Model 
