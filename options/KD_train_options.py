@@ -40,8 +40,8 @@ class KDTrainOptions(BaseOptions):
                                  help='if true, Use KLloss at CScriterion')
         self.parser.add_argument('--pretrained', type=bool, default=True, help='Use ImageNet pretrained resnet')
 
-        self.parser.add_argument('--layerTrans', type=str, default='1x1',
-                                 help='chooses which model to use. [ 1x1 | fc | attention ]')
+        #self.parser.add_argument('--layerTrans', type=str, default='1x1',
+        #                         help='chooses which model to use. [ 1x1 | fc | attention ]')
 
         self.isTrain = True
         self.isKD = True
