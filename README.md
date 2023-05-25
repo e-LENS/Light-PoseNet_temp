@@ -58,6 +58,14 @@ posenet-pytorch/7scenes_preprocessing.py
 Train & Test the PoseNet model on each dataset
 
 
+### Pretrained model
+    'resnet18im': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
+    'resnet34im': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
+    'resnet50im': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
+    'resnet101im': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
+    'resnet152im': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+
+
 ### Train Teacher Model 
 ```
 !python train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [model]/[Dataset]/[beta500_ex] --beta 500 --gpu 0 --niter 500 --batchSize32 --lr 0.001
@@ -70,7 +78,7 @@ Train & Test the PoseNet model on each dataset
 
 ### Train Student Model
 ```
-!python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name  [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --CSmodule 3 4 --hintmodule 5 [--CSKL]
+!python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name  [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --SCmodule 3 4 --hintmodule 5 [--SCKL]
 ```
 
 ### Test Student Model
@@ -83,5 +91,11 @@ Train & Test the PoseNet model on each dataset
 
 ```
 
+---
+
+### reference
+참고한 repo
+- https://github.com/hazirbas/poselstm-pytorch
+- https://github.com/HobbitLong/RepDistiller
 
 
