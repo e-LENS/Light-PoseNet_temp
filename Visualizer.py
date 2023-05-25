@@ -5,15 +5,10 @@ from data.data_loader import CreateDataLoader
 from models.models import create_model
 from util.visualizer import Visualizer
 from util import html
-#from util.util import getSelfSimilarity
 import numpy as np
 import torch
 from torchmetrics.functional import pairwise_cosine_similarity
 from os.path import join as jpath
-
-
-#import torchshow as ts
-
 
 opt = TestOptions().parse()
 opt.nThreads = 1   # test code only supports nThreads = 1
@@ -28,14 +23,13 @@ dataset = data_loader.load_data()
 model = create_model(opt)
 testepoch = 32
 
-
 def getSelfSimilarity(input_m):
     # shape : N*256*256*3 => N*(256*256*3)
     sim = []
     temp = (input_m.view([input_m.shape[0], -1]).squeeze())
     # F.pdist => 1*(_nC_2) //
     sim.append(pairwise_cosine_similarity(temp))  # N*N
-
+    
     return sim
 
 def translate(value, leftMin, leftMax, rightMin, rightMax):
@@ -53,14 +47,12 @@ def translate(value, leftMin, leftMax, rightMin, rightMax):
 for i, data in enumerate(dataset):
 
     model.netG.load_state_dict(torch.load("./TeacherBestWeight/Teacher_Resnet34/Heads_Resnet34.pth"))
-
     model.set_input(data)
     model.test()
     feature, pred = model.pred_B
     print(len(feature[0]))
 
     if (i == 0):
-
         input_B = model.input_B.cpu()
         act_1 = feature[0].cpu()
         act_2 = feature[1].cpu()
@@ -102,13 +94,9 @@ for i, data in enumerate(dataset):
 
         #img_Max = torch.max(img_Sim).cpu()
         #img_Min = torch.min(img_Sim).cpu()
-
         #gt_Max = torch.max(gt_Sim).cpu()
         #gt_Min = torch.min(gt_Sim).cpu()
-
         #scaled_gt_Sim = translate(gt_Sim, img_Min, img_Max, gt_Min, gt_Max)
-
-        #print(scaled_gt_Sim)
 
         img_Sim = img_Sim.cpu().numpy()
         #scaled_gt_Sim = scaled_gt_Sim.cpu().numpy()
@@ -124,12 +112,3 @@ for i, data in enumerate(dataset):
         np.save(jpath('./Image/heads', 'pred.npy'), pred_Sim)
 
         break
-
-
-
-
-
-
-
-
-
