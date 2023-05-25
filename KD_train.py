@@ -16,11 +16,6 @@ torch.manual_seed(opt.seed)
 np.random.seed(opt.seed)
 random.seed(opt.seed)
 torch.backends.cudnn.deterministic = True
-# import GPUtil
-
-# import wandb
-#
-# wandb.init(project="CS1325_LightPoseNet_heads_1000_1000_500_32", entity="e-lens-", name="KDCS_heads_500_bt32")
 
 # Set Dataloader
 data_loader = CreateDataLoader(opt)
@@ -54,11 +49,6 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
 
             losses = student.get_current_errors()
-            # for loss_name, loss_value in losses:
-            #     wandb.log({'%s'%loss_name :loss_value})
-            #
-            # for k, v in errors.items():
-            #   wandb.log({'%s'%k :v})
 
             if opt.display_id > 0:
                 visualizer.plot_current_errors(epoch, float(epoch_iter) / dataset_size, opt, errors)
@@ -72,5 +62,3 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
     print('End of epoch %d / %d \t Time Taken: %d sec' %
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
     student.update_learning_rate()
-
-# wandb.finish()
