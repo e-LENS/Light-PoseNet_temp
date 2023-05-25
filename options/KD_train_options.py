@@ -33,10 +33,10 @@ class KDTrainOptions(BaseOptions):
         self.parser.add_argument('-hintmodule', nargs='+', type=int, default=5,
                                  help='chooses which module feature maps to use as hint and guided. [ 1 | 2 | 3 | 4 | 5 | 6]')
 
-        self.parser.add_argument('-CSmodule', nargs='+', type=int, default=3,
+        self.parser.add_argument('-SCmodule', nargs='+', type=int, default=3,
                                  help='chooses which module feature maps to use as CSloss. [ 1 | 2 | 3 | 4 | 5 | 6 ]')
 
-        self.parser.add_argument('--KLCS', action='store_true',
+        self.parser.add_argument('--KLSC', action='store_true',
                                  help='if true, Use KLloss at CScriterion')
         self.parser.add_argument('--pretrained', type=bool, default=True, help='Use ImageNet pretrained resnet')
 
