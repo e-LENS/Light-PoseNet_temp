@@ -8,7 +8,7 @@
 
 ## Installation
 ```
-git clone !!!!!!!!!깃허브링크!!!!!!!!!!!!11
+git clone https://github.com/e-LENS/SCKD.git
 cd SCKD
 pip install -r requirements.txt
 ```
@@ -63,17 +63,17 @@ To use pretrained googlenet trained on the Places dataset, download [places-goog
 
 ### Train Teacher Model 
 ```
-!python train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [모델명]/[Dataset]/[beta500_ex] --beta 500 --gpu 0 --niter 500 --batchSize32 --lr 0.001
+!python train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [model]/[Dataset]/[beta500_ex] --beta 500 --gpu 0 --niter 500 --batchSize32 --lr 0.001
 ```
 
 ### Test Teacher Model
 ```
-!python test.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [모델명]/[Dataset]/[beta500_ex] --gpu 0
+!python test.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [model]/[Dataset]/[beta500_ex] --gpu 0
 ```
 
 ### Train Student Model
 ```
-!python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name  [S_모델명]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --CSmodule 3 4 --hintmodule 5 [--CSKL]
+!python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name  [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --CSmodule 3 4 --hintmodule 5 [--CSKL]
 ```
 
 ### Test Student Model
