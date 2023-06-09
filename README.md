@@ -120,10 +120,10 @@ __** Comparision with other KD method for Regression problems  **__
 
 |   Model   | Shop Facade |Stairs | 
 | :----------------:  | :---------------: | :---------------: | 
-|       Vanilla KD      |     8.25m /9.17   |       0.39m /13.08     |  
-| M.U's KD |     1.45m / 7.58    |    0.39m / 15.27    | 
-| Self-Similarity KD |     0.94m / 6.56     |  0.37m / 13.63    | 
-| __Ours__ |     __0.93m / 5.96__   |    __0.33m / 13.02__     | 
+|       Vanilla KD      |     8.25m / 9.17°   |       0.39m / 13.08°     |  
+| M.U's KD |     1.45m / 7.58°    |    0.39m / 15.27°    | 
+| Self-Similarity KD |     0.94m / 6.56°     |  0.37m / 13.63°    | 
+| __Ours__ |     __0.93m / 5.96°__   |    __0.33m / 13.02°__     | 
 
 
 
