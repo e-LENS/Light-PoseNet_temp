@@ -99,14 +99,6 @@ Train & Test the PoseNet model on each dataset
 * 학습된 모델의 테스트 결과는 `./results/[name]`에 저장됨
 
 
-
----
-### reference
-
-참고한 repo
-- https://github.com/hazirbas/poselstm-pytorch
-- https://github.com/HobbitLong/RepDistiller
-
 ## Result 
 
 __** ResNet Model Size  **__
@@ -132,3 +124,14 @@ __** Comparision with other KD method for Regression problems  **__
 | M.U's KD |     1.45m / 7.58    |    0.39m / 15.27    | 
 | Self-Similarity KD |     0.94m / 6.56     |  0.37m / 13.63    | 
 | __Ours__ |     __0.93m / 5.96__   |    __0.33m / 13.02__     | 
+
+
+
+---
+### reference
+
+참고한 repo
+- https://github.com/hazirbas/poselstm-pytorch
+- https://github.com/HobbitLong/RepDistiller
+
+
