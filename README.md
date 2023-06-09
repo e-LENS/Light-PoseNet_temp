@@ -98,4 +98,28 @@ Train & Test the PoseNet model on each dataset
 - https://github.com/hazirbas/poselstm-pytorch
 - https://github.com/HobbitLong/RepDistiller
 
+## Result 
 
+__** ResNet Model Size  **__
+
+|   Backbone Models   | ResNet50(Teacher) | ResNet34(Teacher) | ResNet18(Student) | 
+| :----------------:  | :---------------: | :---------------: | :---------------: |
+|       Size(MB)      |       102.45      |       87.27       |       __46__      |
+| Number of Parameter |     25,613,383    |    21,817,159     |   __11,708,999__  |
+
+
+__** Inference time at Jetson Nano 2GB developer kit  **__
+
+|   Backbone Models   | ResNet50(Teacher) | ResNet34(Teacher) | ResNet18(Student) | 
+| :----------------:  | :---------------: | :---------------: | :---------------: |
+| Median Inference Time (clock) |      125      |       90       |     __50__     |
+
+
+__** Comparision with other KD method for Regression problems  **__
+
+|   Model   | Shop Facade |Stairs | 
+| :----------------:  | :---------------: | :---------------: | 
+|       Vanilla KD      |     8.25m /9.17   |       0.39m /13.08     |  
+| M.U's KD |     1.45m / 7.58    |    0.39m / 15.27    | 
+| Self-Similarity KD |     0.94m / 6.56     |  0.37m / 13.63    | 
+| __Ours__ |     0.93m / 5.96   |    0.33m / 13.02     | 
