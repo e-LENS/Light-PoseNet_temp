@@ -2,13 +2,16 @@
 The similarity based knowledge distillation mehod to compress the 6-dof Pose Regressor model so that it can show high performance on 5W low-power environment
 
 ### Architecture 
-<img src="https://github.com/e-LENS/SCKD/assets/108324590/92b748dc-2ec6-42f4-98fc-bab1fef07d37" width="300" height="300">
+<p align="center"><img src="https://github.com/e-LENS/SCKD/assets/108324590/92b748dc-2ec6-42f4-98fc-bab1fef07d37" width="300" height="300"></p>
 
 
 ## Requirements
 * LINUX
-* Python 3
-* CPU or NVIDIA GPU
+* Colab
+  * Python 3
+  * CPU : Intel Xeon(제온) CPU 2.3 GHHz(Dual-Core)
+  * GPU : Nvidia Tesla T4
+  * GPU merory : 8GB
 
 ## Installation
 ```
