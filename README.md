@@ -10,7 +10,7 @@ The similarity based knowledge distillation mehod to compress the 6-dof Pose Reg
 * LINUX
 * Colab
   * Python 3
-  * CPU : Intel Xeon(제온) CPU 2.3 GHHz(Dual-Core)
+  * CPU : Intel Xeon CPU 2.3 GHHz(Dual-Core)
   * GPU : Nvidia Tesla T4
   * GPU merory : 8GB
 
