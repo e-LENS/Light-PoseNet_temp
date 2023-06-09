@@ -1,4 +1,8 @@
-# SCKD
+# SCKD :  Self-Cross Similarity Knowledge Distillation for Light Camera Pose Regressor
+The similarity based knowledge distillation mehod to compress the 6-dof Pose Regressor model so that it can show high performance on 5W low-power environment
+
+### Architecture 
+<img src="https://github.com/e-LENS/SCKD/assets/108324590/92b748dc-2ec6-42f4-98fc-bab1fef07d37" width="300" height="300">
 
 
 ## Requirements
@@ -36,7 +40,7 @@ datasets/Stairs
 * Compute the mean image for each dataset
 
 ```
-python util/compute_image_mean.py --dataroot datasets/[데이터셋이름] --height 256 --width 455 --save_resized_imgs
+python util/compute_image_mean.py --dataroot datasets/[] --height 256 --width 455 --save_resized_imgs
 ```
 
 * 6DoF 전처리
@@ -78,12 +82,13 @@ Train & Test the PoseNet model on each dataset
 
 ### Train Student Model
 ```
-!python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name  [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --SCmodule 3 4 --hintmodule 5 [--SCKL]
+!python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --SCmodule [ 0 | 1 | 2 | 3 | 4 | 5 ] --hintmodule [ 0 | 1 | 2 | 3 | 4 | 5 ] [--SCKL]
 ```
+`SCmodule` 과 `hintmodule` option layer는 list type 으로 선택가능
 
 ### Test Student Model
 ```
-!python KD_test.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name Student/[Dataset]/[beta500_LossFunction] --beta 500 --gpu 0 
+!python KD_test.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 
 ```
 
 * 학습된 모델 및 학습 결과는 `./checkpoints/[name]`에 저장됨
