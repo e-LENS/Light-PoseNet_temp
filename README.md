@@ -108,6 +108,7 @@ __** ResNet Model Size  **__
 |       Size(MB)      |       102.45      |       87.27       |       __46__      |
 | Number of Parameter |     25,613,383    |    21,817,159     |   __11,708,999__  |
 
+<br/>
 
 __** Inference time at Jetson Nano 2GB developer kit  **__
 
@@ -115,6 +116,7 @@ __** Inference time at Jetson Nano 2GB developer kit  **__
 | :----------------:  | :---------------: | :---------------: | :---------------: |
 | Median Inference Time (clock) |      125      |       90       |     __50__     |
 
+<br/>
 
 __** Comparision with other KD method for Regression problems  **__
 
