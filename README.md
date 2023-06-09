@@ -1,7 +1,8 @@
 # SCKD :  Self-Cross Similarity Knowledge Distillation for Light Camera Pose Regressor
 The similarity based knowledge distillation mehod to compress the 6-dof Pose Regressor model so that it can show high performance on 5W low-power environment
 
-### Architecture 
+## Architecture 
+
 <p align="center"><img src="https://github.com/e-LENS/SCKD/assets/108324590/92b748dc-2ec6-42f4-98fc-bab1fef07d37" width="300" height="300"></p>
 
 
@@ -43,7 +44,7 @@ datasets/Stairs
 * Compute the mean image for each dataset
 
 ```
-python util/compute_image_mean.py --dataroot datasets/[] --height 256 --width 455 --save_resized_imgs
+python util/compute_image_mean.py --dataroot datasets/[Dataset_name] --height 256 --width 455 --save_resized_imgs
 ```
 
 * 6DoF 전처리
