@@ -12,7 +12,7 @@ The similarity based knowledge distillation mehod to compress the 6-dof Pose Reg
   * Python 3
   * CPU : Intel Xeon CPU 2.3 GHHz(Dual-Core)
   * GPU : Nvidia Tesla T4
-  * GPU merory : 8GB
+  * GPU memory : 8GB
 
 ## Installation
 ```
