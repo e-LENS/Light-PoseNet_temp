@@ -88,7 +88,7 @@ Train & Test the PoseNet model on each dataset
 ```
 !python KD_train.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 --niter 500 --T_model [ resnet34 | resnet50 | resnet101]  --T_path [TeacherModel_Path] --save_epoch_freq 5 --SCmodule [ 0 | 1 | 2 | 3 | 4 | 5 ] --hintmodule [ 0 | 1 | 2 | 3 | 4 | 5 ] [--SCKL]
 ```
-`SCmodule` 과 `hintmodule` option layer는 list type 으로 선택가능
+- `SCmodule` 과 `hintmodule` option layer는 list type 으로 선택가능
 
 ### Test Student Model
 ```
