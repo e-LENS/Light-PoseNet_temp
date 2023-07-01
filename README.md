@@ -47,18 +47,12 @@ datasets/Stairs
 python util/compute_image_mean.py --dataroot datasets/[Dataset_name] --height 256 --width 455 --save_resized_imgs
 ```
 
-* 6DoF 전처리
+#### Preprocess 6DoF
 
-> 7Scenes dataset은 Position & Orientation label을 4x4 matrix 로 제공하나 
-> 위 PoseNet은 position(X,Y,Z) & Orientation quaternion(W,P,Q,R) 의 7dimension vector label을 사용해 label값을 변환하는 dataset preprocessing이 필요하다.
+> In 7 Scenes dataset, Position & Orientation is given in 4x4 matrix format.<br>
+> PoseNet requires 7 dimension vector of *position* (X,Y,Z) & *Orientation quaternion* (W,P,Q,R)
 
-해당 github의
-`
-posenet-pytorch/7scenes_preprocessing.py
-`
-파일을 이용해 
-
-4x4 => position(X,Y,Z) & Orientation quaternion(W,P,Q,R) 로 label을 변환한다. 
+Use `posenet-pytorch/7scenes_preprocessing.py` to convert 4x4 matrix to 7 dim vector.
 
 
 ## SCKD
@@ -95,8 +89,8 @@ Train & Test the PoseNet model on each dataset
 !python KD_test.py --model [resnet18 | resnet34 | resnet50 | resnet101] --dataroot [DATAROOT] --name [student model]/[Dataset]/[beta500_bt_lr_m#1_m#2_scaling] --beta 500 --gpu 0 
 ```
 
-* 학습된 모델 및 학습 결과는 `./checkpoints/[name]`에 저장됨
-* 학습된 모델의 테스트 결과는 `./results/[name]`에 저장됨
+* Train result is saved here ; `./checkpoints/[name]`
+* Test result is saved here ; `./results/[name]`
 
 
 ## Result 
@@ -130,9 +124,8 @@ __** Comparision with other KD method for Regression problems  **__
 
 
 ---
-### reference
+### Reference
 
-참고한 repo
 - https://github.com/hazirbas/poselstm-pytorch
 - https://github.com/HobbitLong/RepDistiller
 
