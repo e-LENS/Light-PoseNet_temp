@@ -43,8 +43,6 @@ class Distill_CS(nn.Module):
     def forward(self, CS_T, CS_S):
         loss = 0
         for i in range(len(CS_T)):
-            CS_S[i] = F.normalize(CS_S[i], p=2, dim=1)
-            CS_T[i] = F.normalize(CS_T[i], p=2, dim=1)
             CS_S[i] = F.softmax(CS_S[i], dim=1)
             CS_T[i] = F.softmax(CS_T[i], dim=1)
             loss += F.kl_div(CS_S, CS_T, reduction='batchmean')
