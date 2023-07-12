@@ -14,10 +14,11 @@ import numpy
 from torchinfo import summary
 
 
-class DistillKL_Feature(nn.Module):
+class Distill_Feature(nn.Module):
     # Distilling the Knowledge in a ResNet Module (Hint / Guided Module)
     def __init__(self, layerTrans):
-        super(DistillKL_Feature, self).__init__()
+        super(Distill_Feature, self).__init__()
+        self.MSE = torch.nn.MSELoss()
 
     def forward(self, feature_S, feature_T):
         loss = 0
@@ -26,16 +27,12 @@ class DistillKL_Feature(nn.Module):
                 Trans = resPoseNet.Trans_Student(feature_S[i].shape[1], feature_T[i].shape[1])
                 feature_S[i] = Trans(feature_S[i])
 
-            feature_S[i] = F.normalize(feature_S[i], p=2, dim=1)
-            feature_T[i] = F.normalize(feature_T[i], p=2, dim=1)
-            feature_S[i] = F.log_softmax(feature_S[i], dim=1)
-            feature_T[i] = F.softmax(feature_T[i], dim=1)
-            loss += F.kl_div(feature_S[i], feature_T[i], reduction='batchmean')
+            #feature_S[i] = F.normalize(feature_S[i], p=2, dim=1)
+            #feature_T[i] = F.normalize(feature_T[i], p=2, dim=1)
 
-        # if self.layerTrans=="attention":
+            loss += self.MSE(feature_S[i], feature_T[i])
 
         return loss
-
 
 class Distill_CS(nn.Module):
     def __init__(self, isKL=False):
@@ -45,17 +42,13 @@ class Distill_CS(nn.Module):
 
     def forward(self, CS_T, CS_S):
         loss = 0
-        if self.isKL:
-            for i in range(len(CS_T)):
-                CS_S[i] = F.log_softmax(CS_S[i], dim=1)
-                CS_T[i] = F.softmax(CS_T[i], dim=1)
-                loss += F.kl_div(CS_S, CS_T, reduction='batchmean')
-
-        else:
-            for i in range(len(CS_T)):
-                loss += self.MSE(CS_S[i], CS_T[i])
+        for i in range(len(CS_T)):
+            CS_S[i] = F.normalize(CS_S[i], p=2, dim=1)
+            CS_T[i] = F.normalize(CS_T[i], p=2, dim=1)
+            CS_S[i] = F.softmax(CS_S[i], dim=1)
+            CS_T[i] = F.softmax(CS_T[i], dim=1)
+            loss += F.kl_div(CS_S, CS_T, reduction='batchmean')
         return loss
-
 
 class PoseNetModel(BaseModel):
     def name(self):
@@ -98,7 +91,7 @@ class PoseNetModel(BaseModel):
             if self.isKD:
                 self.isKL = opt.KLCS
                 self.layerTrans = opt.layerTrans
-                criterion_KLfeatures = DistillKL_Feature(opt.layerTrans)
+                criterion_KLfeatures = Distill_Feature(opt.layerTrans)
                 criterion_CS = Distill_CS(self.isKL)
                 criterion = torch.nn.ModuleList([])
                 criterion.append(criterion_MSE)
